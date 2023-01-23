@@ -1,0 +1,14 @@
+\begin{frame}
+    \frametitle{Least Absolute Shrinkage and Selection Operator (LASSO) Regression} 
+    \framesubtitle{LASSO provides a linear model penalised by the L1-norm.}
+
+ 
+\begin{itemize}
+    \item LASSO is a regression technique which assists in indicator selection through application of a shrinkage penalty proportionate to size of the coefficient \parencite{Tibshirani_1996}.
+    \item The resulting model is parsimonious, and thus more interpretable,  as less relevant indicators are set equal to zero. However, a documented weakness of LASSO is that it fails to perform group selection where indicators are correlated \parencite{Liu_Li_2017}. 
+    \item The tuning parameter must be correctly selected so as to minimise prediction error subject to the bias-variance trade-off. For implementation, we propose use of \emph{glmnet} R package. This assists with optimal tuning parameter through in-built k-fold cross validation. 
+\end{itemize}
+
+
+ 
+\end{frame}

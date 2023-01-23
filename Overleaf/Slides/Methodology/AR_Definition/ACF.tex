@@ -1,0 +1,16 @@
+\begin{frame}
+    \frametitle{Autocovariance function}
+    \framesubtitle{Formal representation}
+    \begin{center}
+        Autocovariance function reports the covariance of ${\Delta GDP}_t$ with its own lags:
+    \end{center}
+    \[
+        \begin{array}{ccc}
+            \operatorname{Cov}\left({\Delta GDP}_t, {\Delta GDP}_{t-1}\right)= & \gamma(1) \\
+            \operatorname{Cov}\left({\Delta GDP}_t, {\Delta GDP}_{t-2}\right)= & \gamma(2) \\
+            \vdots                                                             & \vdots    \\
+            \operatorname{Cov}\left({\Delta GDP}_t, {\Delta GDP}_{t-k}\right)= & \gamma(k)
+        \end{array}
+    \]
+    $$AC(k)=\dfrac{Cov\left({\Delta GDP}_{t},{\Delta GDP}_{t-k}\right)}{\sqrt{Var({\Delta GDP}_{t})}\sqrt{Var({\Delta GDP}_{t-k})}}=\dfrac{\gamma\left(k\right)}{\gamma\left(0\right)}$$
+\end{frame}

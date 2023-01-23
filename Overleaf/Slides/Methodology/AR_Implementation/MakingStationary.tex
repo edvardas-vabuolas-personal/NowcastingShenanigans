@@ -1,0 +1,16 @@
+\begin{frame}
+    \frametitle{Determining \textit{d}}
+    \framesubtitle{How many times should we difference the time series?}
+
+    We will use ACF to determine if (or how many times) GDP needs to be differenced.
+
+    \begin{enumerate}
+        \item Calculate AC for each period $k$
+        \item If ACs are decreasing, then that is a sign of weak stationarity
+              \begin{itemize}
+                  \item This is because the effect of ${\Delta GDP}_{t-k}$ onto ${\Delta GDP}_t$ is fading as $k \to \infty$
+              \end{itemize}
+        \item If ACs decrease very slowly, then there is evidence for unit root, we use $\Delta {GDP}_t$ and go back to Step 1.
+    \end{enumerate}
+
+\end{frame}

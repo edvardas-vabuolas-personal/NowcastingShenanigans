@@ -1,0 +1,25 @@
+\begin{frame}[allowframebreaks]
+    \frametitle{Vector Autoregressive Process}
+    \framesubtitle{Extension of Autoregressive Process to an $n$-variable simultaneous equation model}
+
+    \begin{center}
+        \begin{itemize}
+            \item A reduced-form VAR has $n$ dependent variables and each with its own equation.
+            \item The current value of the variable is explained by its own lagged values plus past values of the remaining $n-1$ variables.
+            \item It might also depend on an intercept, seasonal dummies or a time trend.
+        \end{itemize}
+        \parencite[254]{ghysels_2018_applied}
+    \end{center}
+    In the context of GDP forecasting:
+    \begin{align*}
+        \Delta {GDP}_{t}=\mu_1+ & \phi_{1} {\Delta {GDP}}_{t-1}+\phi_{2} {\Delta {GDP}}_{t-2}+\ldots \\ & + \phi_{p} {\Delta {GDP}}_{t-p} +\phi_{x, 1} X_{t-1} + \ldots + \phi_{x, p} X_{t-p} +\varepsilon_{t} \\
+        {X}_{t}=\mu_2+          & \phi_{1} {X}_{t-1}+\phi_{2} {X}_{t-2}+\ldots                       \\ & + \phi_{p} {X}_{t-p} +\phi_{x, 1} \Delta {GDP}_{t-1} + \ldots + \phi_{x, p} \Delta {GDP}_{t-p} +\varepsilon_{t}
+    \end{align*}
+    \begin{center}
+        Or more succinctly..
+        $$\underset{n \times 1}{y_t}=\underset{n \times 1}{\mu}+\underset{n \times n}{\Phi_1} y_{t-1}+\ldots+\Phi_p y_{t-p}+\underset{n \times 1}{\varepsilon_t}, \quad \varepsilon_t \sim \mathrm{WN}(0, \underset{n \times n}{\Sigma})$$
+        \parencite[254]{ghysels_2018_applied}\\
+        \par
+        Here, $y_t$ includes $\Delta {GDP}_{t}$ as well as other $n-1$ variables
+    \end{center}
+\end{frame}

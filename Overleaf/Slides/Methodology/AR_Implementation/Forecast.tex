@@ -1,0 +1,12 @@
+\begin{frame}
+    \frametitle{Forecasting GDP}
+    \framesubtitle{Application of AR($p$) to forecast GDP}
+    Assume that ${\Delta GDP}_t$ follows AR($p$). Then:
+
+    $${\Delta \hat{GDP}}_{t+1|\{p \ldots t\}} =\hat{\phi}_{1}{\Delta GDP}_{t}+\ldots+\hat{\phi}_{p}{\Delta GDP}_{t-p+1}$$
+
+    In words, we forecast the value of ${\Delta GDP}$ in period $t+1$ by using periods $\{p \ldots t\}$.
+    \newline \newline
+    The mean square prediction error (MSPE) is:
+    $$MSPE = E\big[ ({\Delta GDP}_{t+1} - {\Delta \hat{GDP}}_{t+1|\{p \ldots t\}})^2 \big]$$
+\end{frame}

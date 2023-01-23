@@ -1,0 +1,27 @@
+\begin{frame}[allowframebreaks]
+    \frametitle{Lag Length Selection}
+    \framesubtitle{Why selecting an optimal lag length matters and how do we do it?}
+
+    \begin{center}
+        Including too many lags in a model, can cause the standard errors of coefficient estimates to be inflated, leading to an increase in forecast error. On the other hand, excluding lags that should be included in a model, can result in an estimation bias.
+    \end{center}
+
+    \begin{center}
+        In line with the literature \parencite{ghysels_2018_applied}, we will use Bayesian Information Criteria (BIC) to determine optimal number of lags.
+    \end{center}
+
+    \begin{center}
+        \cite[187]{ghysels_2018_applied} suggests that BIC combines model goodness of fit with a penalty function related to the number of model parameters.
+    \end{center}
+    \begin{center}
+        In relation to ARIMA models, \cite[187]{ghysels_2018_applied} formally defines BIC as:
+        $$B I C=\log \left(\hat{\sigma}_{\varepsilon}^2\right)+(p+q) \log (T) / T$$
+    \end{center}
+
+    \begin{center}
+        However, given that we will be using purely AR($p$) model, we can set $q=1$ and use the following definition:
+        $$B I C=\log \left(\hat{\sigma}_{\varepsilon}^2\right)+(p+1) \log (T) / T$$
+        We will calculate BIC for each $p$ lag and select the one $p$ value that minimizes BIC.
+    \end{center}
+
+\end{frame}

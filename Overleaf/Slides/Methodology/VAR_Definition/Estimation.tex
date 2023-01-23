@@ -1,0 +1,19 @@
+\begin{frame}
+    \frametitle{Estimation}
+    \framesubtitle{How are VAR parameters estimated?}
+
+    \cite[257-258]{ghysels_2018_applied} shows that VAR can be estimated using OLS equation-by-equation.
+    \begin{align*}
+        \hat{B}=\left[\sum_{t=1}^T y_t x_t^{\prime}\right]\left[\sum_{t=1}^T x_t x_t^{\prime}\right]
+    \end{align*}
+
+    where: \begin{align*}
+        B =(\mu \quad \Phi_1\ldots\Phi_p) &  & x_t=
+        \begin{bmatrix}
+            1
+            \\ y_{t-1}
+            \\ \vdots
+            \\ y_{t-p}
+        \end{bmatrix}
+    \end{align*}
+\end{frame}

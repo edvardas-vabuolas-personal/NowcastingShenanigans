@@ -1,0 +1,8 @@
+\begin{frame}
+   \frametitle{Regularisation Formulas}
+   \begin{align*}
+       & \hat{\beta}=\arg\min\limits_{\hat{\beta}_j}\left\{\sum\limits_{i=1}^n\Big(Y-X\hat{\beta}\Big)^2+\mathsf{Penalty}(\hat{\beta})\right\}                                                                 \end{align*}  
+       \begin{align*}
+       & \hat{\beta}=\sum\limits_{i=1}^n\left(Y-X\hat{\beta}\right)^2+\lambda\sum\limits_{j=1}^p\left[\underbrace{(1-\alpha)\left(\hat{\beta}_j\right)^2}_{\text{RIDGE}}+\underbrace{\alpha\left|\hat{\beta}_j\right|}_{\text{LASSO}}\right]
+   \end{align*}
+\end{frame}

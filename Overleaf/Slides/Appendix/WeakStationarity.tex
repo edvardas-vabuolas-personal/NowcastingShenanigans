@@ -1,0 +1,35 @@
+\begin{frame}[allowframebreaks]
+    \frametitle{Weak Stationarity}
+    % \framesubtitle{Description}
+    \begin{center}
+        Stationarity means that the distribution of a stochastic process (sequence of random variables) depends only on relative position, not on absolute.
+    \end{center}
+    \begin{center}
+        Take GDP growth (${\Delta GDP}_t$). Then,
+        \begin{align*}
+            Cov({\Delta GDP}_1, {\Delta GDP}_3) & = Cov({\Delta GDP}_5, {\Delta GDP}_7) \\ & \ne Cov({\Delta GDP}_2, {\Delta GDP}_8)
+        \end{align*}
+    \end{center}
+    \begin{center}
+        This implies that the mean, variance and other higher moments remain the same across ${\Delta GDP}_t$ sequence (see \cite[98]{hayashi_2011_econometrics} for discussion on stationarity)
+    \end{center}
+    \begin{center}
+        Formal representation of weak stationarity \parencite[174]{ghysels_2018_applied} for ${\Delta GDP}_t$:
+        \begin{align*}
+            E\left({\Delta GDP}_t\right)                                      & =E\left({\Delta GDP}_{t+k}\right)                                        \\
+            \operatorname{Var}\left({\Delta GDP}_t\right)                     & =\operatorname{Var}\left({\Delta GDP}_{t+k}\right)                       \\
+            \operatorname{Cov}\left({\Delta GDP}_t, {\Delta GDP}_{t-m}\right) & =\operatorname{Cov}\left({\Delta GDP}_{t+k}, {\Delta GDP}_{t-m+k}\right) \\ &\forall t, m, k
+        \end{align*}
+
+    \end{center}
+    \pagebreak
+    \begin{center}
+        Therefore, a basic weakly stationary stochastic process for ${\Delta GDP}_t$ can be represented as:
+        \begin{align*}
+            {\Delta GDP}_t & =\varepsilon_t+c_1 \varepsilon_{t-1}+c_2 \varepsilon_{t-2}+\ldots                    \\
+                           & =\sum_{i=0}^{\infty} c_i \varepsilon_{t-i}=\sum_{i=0}^{\infty} c_i L^i \varepsilon_t \\
+                           & =c(L) \varepsilon_t
+        \end{align*}
+        Where L is the lag operator i.e. $L\epsilon_t = \epsilon_{t-1}$ and $L^i \varepsilon_t=\epsilon_{t-i}$. The error process is uncorrelated across time and has a constant variance, hence $\varepsilon_{t}\sim\mathrm{WN}(0,\sigma^{2})$ \parencite[175]{ghysels_2018_applied}
+    \end{center}
+\end{frame}

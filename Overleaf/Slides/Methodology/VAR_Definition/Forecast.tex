@@ -1,0 +1,10 @@
+\begin{frame}
+    \frametitle{Forecast}
+    \framesubtitle{VAR forecasting with estimated parameters}
+
+    \begin{center} Once the parameters are estimated, then we can forecast $T+h$ periods iteratively \parencite[261]{ghysels_2018_applied}:
+        $$\hat{y}_{T+h}=\Phi_1 \hat{y}_{T+h-1}+\ldots \Phi_p \hat{y}_{T+h-p}$$
+
+        For example, to forecast $T+3$, we first forecast $T+1$, then use it to forecast $T+2$, which then can be used to forecast $T+3$. \end{center}
+
+\end{frame}

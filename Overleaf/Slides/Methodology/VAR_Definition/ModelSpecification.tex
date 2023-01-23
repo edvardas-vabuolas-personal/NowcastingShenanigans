@@ -1,0 +1,22 @@
+\begin{frame}
+    \frametitle{VAR Specification}
+    \framesubtitle{How are we going to select variables and the lag length}
+
+    According to \cite[256]{ghysels_2018_applied}, specification of a VAR model requires:
+    \begin{itemize}
+        \item Specification of $n-1$ variables
+              \begin{itemize}
+                  \item We use economic theory and other literature to select variables of interest
+              \end{itemize}
+        \item Specification of the deterministic component
+              \begin{itemize}
+                  \item We will include an intercept and dummy variables for structural breaks
+              \end{itemize}
+        \item Specification of lag length
+              \begin{itemize}
+                  \item We will use multivariate version of BIC
+                        $$ B I C(j)=\ln \left|\Sigma_j\right|+\frac{\ln T}{T} j n^2, \quad j=1, \ldots, p_{\max }$$
+              \end{itemize}
+    \end{itemize}
+
+\end{frame}

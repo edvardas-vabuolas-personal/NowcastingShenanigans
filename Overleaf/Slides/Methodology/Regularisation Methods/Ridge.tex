@@ -1,0 +1,12 @@
+\begin{frame}
+\frametitle{Ridge Regression}
+\framesubtitle{Ridge regression approach provides a linear model penalised by the L2-norm.}
+
+\begin{itemize}
+    \item Akin to LASSO, Ridge shrinks coefficients proportionate to residual error. However, does not set any completely to zero. 
+    \item This will not result in a model as interpretable as LASSO, but allows for inclusion of a greater number of indicators with less risk of multicollinearity. Inherently, this should improve predictive performance relative to OLS in the context of high dimensional data. 
+    \vspace{2mm}
+    \item Again, we propose that this regression is implemented using \emph{gmlnet} R package which uses k-fold Cross Validation to select the tuning parameter which minimises MSPE. 
+\end{itemize}
+    
+\end{frame}

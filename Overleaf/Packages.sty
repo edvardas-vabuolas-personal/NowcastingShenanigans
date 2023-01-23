@@ -1,0 +1,36 @@
+\ProvidesPackage{Packages}
+\usepackage[backend=biber,style=authoryear-ibid, hyperref=true]{biblatex}
+\usepackage{import}
+\usepackage[makeroom]{cancel}
+\usepackage{multirow}
+\usepackage{mathtools}
+\usepackage{xcolor}
+\usepackage{bm}
+\usepackage{float}
+\usepackage{lipsum} % Command is \lipsum[2-4], where 2-4 are the 2nd to 4th of 150 paragraphs
+\usepackage{soul}
+\usepackage{graphicx}
+% \usepackage{hyperref}
+\usepackage{tikz}
+\usepackage{fancyhdr}
+\usepackage{booktabs} % Allows the use of \toprule, \midrule and \bottomrule for better rules in tables
+\usepackage{yhmath}
+\usepackage{array}
+% Redefined or new commands
+
+\renewcommand{\hat}[1]{
+    \widehat{#1}
+    }
+
+\addtobeamertemplate{navigation symbols}{}{%
+    \usebeamerfont{footline}%
+    \usebeamercolor[fg]{footline}%
+    \hspace{1em}%
+    \raisebox{1.2pt}[0pt][0pt]{\insertframenumber/\inserttotalframenumber}
+}
+
+%gets rid of footer
+%will override 'frame number' instruction above
+%comment out to revert to previous/default definitions
+\setbeamertemplate{footline}{}
+\endinput

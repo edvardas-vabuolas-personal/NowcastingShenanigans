@@ -1,0 +1,13 @@
+\begin{frame}
+    \frametitle{Autoregressive process}
+    \framesubtitle{Formal representation and estimation}
+    Autoregressive process for ${\Delta GDP}_t$:
+
+    $${\Delta GDP}_t=\sum_{j=1}^\infty\phi_j {\Delta GDP}_{t-j}+\varepsilon_t,\quad\varepsilon_t\sim\operatorname{WN}(0,\sigma^2)$$
+
+    Which can be estimated by a $p$th-order autoregressive process for ${\Delta GDP}_t$ using OLS:
+    \begin{align*}
+        {\Delta \hat{GDP}}_t & =\sum_{j=1}^{p}\hat{\phi}_j {\Delta GDP}_{t-j}+\varepsilon_t                              \\
+                             & =\hat{\phi}_{1}{\Delta GDP}_{t-1}+\ldots+\hat{\phi}_{p}{\Delta GDP}_{t-p}+\varepsilon_{t}
+    \end{align*}
+\end{frame}

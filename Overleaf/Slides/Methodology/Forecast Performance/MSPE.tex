@@ -1,0 +1,23 @@
+\begin{frame}[t]
+\frametitle{Methodology Summary}
+    \begin{table}[]
+        \begin{tabular}{l | l}
+        \underline{\textbf{ML Models}}&\underline{\textbf{Traditional Models}}\\
+        LSTM&AR\\
+        Elastic Net&VAR\\
+        LASSO&\\
+        Ridge&\\
+        \end{tabular}
+    \end{table}
+\vspace{10pt}
+\textbf{Measure of Performance:} Mean Squared Prediction Error (MSPE)
+\begin{align*}
+MSPE = E\left[ ({\Delta GDP}_{t+1} - {\Delta \hat{GDP}}_{t+1|\{p \ldots t\}})^2 \right]
+\end{align*}
+\vspace{10pt}
+\textbf{Project objectives:}
+    \begin{itemize}
+        \item To obtain nowcasts of quarterly GDP growth using the models listed above and rank them in order of performance. 
+        \item We will conduct the comparison using standard models and structural-break-robust models.
+    \end{itemize}
+\end{frame}
