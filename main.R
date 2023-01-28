@@ -1,6 +1,9 @@
 ######### packages ###############
 
 ######### Data import ############
+# Data used: OECD Economic Outlook for the UK, 1979Q1-2020Q1
+# https://stats.oecd.org/index.aspx?queryid=51396 (unfiltered)
+
 # OECD does not let download all data in a single file, so we download two files and merge them
 uk_data1 <- read.csv(file = 'economic_outlook1.csv', head = T)
 uk_data2 <- read.csv(file = 'economic_outlook2.csv', head = T)
@@ -25,7 +28,7 @@ for (i in 1:nrow(uk_data)) {
   }
 }
 
-# Initiate data frame with 165 rows (1979Q1-2019Q4 has 165 quarters)
+# Initiate data frame with 166 rows (1979Q1-2020Q1 has 166 quarters)
 df <- as.data.frame(matrix(0, nrow = 166, ncol = 0))
 # Iterate over dictionary keys
 for (i in ls(vars_vals)) {
