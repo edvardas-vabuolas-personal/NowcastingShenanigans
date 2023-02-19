@@ -1,8 +1,9 @@
 
+
 process_data <- function(csv_file, no_of_rows, var_col_name) {
   ##### Creating a data frame ######
   # OECD CSV export returns variable names as rows, we need them as columns
-
+  
   # Initiate empty list
   vars_vals <- list()
   for (i in 1:nrow(csv_file)) {
@@ -17,9 +18,9 @@ process_data <- function(csv_file, no_of_rows, var_col_name) {
         append(vars_vals[[var_name]], csv_file[i, "Value"])
     }
   }
-
   
-  # Initiate data frame with 166 rows (1979Q1-2020Q1 has 166 quarters)
+  
+  # Initiate data frame with the expected number of rows (time periods)
   df <- as.data.frame(matrix(0, nrow = no_of_rows, ncol = 0))
   # Iterate over dictionary keys
   for (i in ls(vars_vals)) {
@@ -38,18 +39,4 @@ process_data <- function(csv_file, no_of_rows, var_col_name) {
     }
   }
   return(df)
-  
-  
-  # "Variable with missing values:  CPIH"       Data starts from 1990: No. of values:  122
-  # "Variable with missing values:  CPIH_YTYPCT"      Data starts from 1991: No. of values:  118
-  # "Variable with missing values:  EXCHER"       Data starts from 2007: No. of values:  54
-  # "Variable with missing values:  PCOREH"       Data starts from 1996: No. of values:  98
-  # "Variable with missing values:  PCOREH_YTYPCT"      Data starts from 1997: No. of values:  94
-  # "Variable with missing values:  PMGSX"      Data starts from 1998: No. of values:  130
-  # "Variable with missing values:  PMNW"       Data starts from 1998: No. of values:  130
-  # "Variable with missing values:  PXGSX"      Data starts from 1998: No. of values:  130
-  # "Variable with missing values:  PXNW"       Data starts from 1998: No. of values:  130
-  # "Variable with missing values:  SHTGSVD"      Data starts from 1980: No. of values:  162
-  
-  # "Variable with missing values:  Short-term interest rates, Per cent per annum  No. of values:  420" (Starts at 1986)
 }
