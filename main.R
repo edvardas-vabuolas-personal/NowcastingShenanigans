@@ -1,59 +1,44 @@
-######### packages ###############
+source('process_data.R')
+library(dplyr)
+library(tidyverse)
+library(stringr)
 
 ######### Data import ############
 # Data used: OECD Economic Outlook for the UK, 1979Q1-2020Q1
 # https://stats.oecd.org/index.aspx?queryid=51396 (unfiltered)
 
 # OECD does not let download all data in a single file, so we download two files and merge them
-uk_data1 <- read.csv(file = 'economic_outlook1.csv', head = T)
-uk_data2 <- read.csv(file = 'economic_outlook2.csv', head = T)
-uk_data <- merge(uk_data1, uk_data2, all = TRUE)
+detailed_economic_outlook <- merge(
+  read.csv(file = './oecd_data/economic_outlook1.csv', head = T), 
+  read.csv(file = './oecd_data/economic_outlook2.csv', head = T), 
+  all = TRUE)
 
-##### Creating a data frame ######
-# OECD CSV export returns variable names as rows, we need them as columns
+detailed_monetary_data <- read.csv('./oecd_data/monetary_stats.csv', head = T)
 
-# Initiate empty list
-vars_vals <- list()
-for (i in 1:nrow(uk_data)) {
-  # Pre-define variable name for optimization
-  var_name <- uk_data[i, "VARIABLE"]
-  
-  # If variable is not in the list - create a new dict key with initial value
-  if (length(vars_vals[[var_name]]) == 0) {
-    vars_vals[[var_name]] <- list(uk_data[i, "Value"])
-  } else {
-    # If variable is in the list - append dict value with new value
-    vars_vals[[var_name]] <-
-      append(vars_vals[[var_name]], uk_data[i, "Value"])
-  }
-}
+detailed_unemployment <- read.csv('./oecd_data/unemployment_data.csv', head = T)
 
-# Initiate data frame with 166 rows (1979Q1-2020Q1 has 166 quarters)
-df <- as.data.frame(matrix(0, nrow = 166, ncol = 0))
-# Iterate over dictionary keys
-for (i in ls(vars_vals)) {
-  # Ignore variable if there are missing values
-  if (length(vars_vals[[i]]) == 166) {
-    # Append data frame with a new column "i" with it's associated values as rows
-    df[[i]] <- vars_vals[[i]]
-  } else {
-    print(paste(
-      "Variable with missing values: ",
-      i,
-      " No. of values: ",
-      length(vars_vals[[i]])
-    ))
-  }
-}
+ready_economic_outlook <- process_data(
+  detailed_economic_outlook, 166, 'Variable')
+
+ready_monetary_data <- process_data(
+  detailed_monetary_data, 481, 'Subject')
+
+ready_unemployment_data <- process_data(
+  detailed_unemployment, 433, 'Subject')
+
+ready_economic_outlook$Time <- str_replace(ready_economic_outlook$Time, 'Q1', '03')
+ready_economic_outlook$Time <- str_replace(ready_economic_outlook$Time, 'Q2', '06')
+ready_economic_outlook$Time <- str_replace(ready_economic_outlook$Time, 'Q3', '09')
+ready_economic_outlook$Time <- str_replace(ready_economic_outlook$Time, 'Q4', '12')
+
+ready_datasets <- list(
+  ready_economic_outlook, 
+  ready_monetary_data, 
+  ready_unemployment_data
+)
+
+monthly_dataset <- ready_datasets %>% reduce(full_join, by='Time')
+quarterly_dataset <- ready_datasets %>% reduce(inner_join, by='Time')
 
 
-# "Variable with missing values:  CPIH"       Data starts from 1990: No. of values:  122
-# "Variable with missing values:  CPIH_YTYPCT"      Data starts from 1991: No. of values:  118
-# "Variable with missing values:  EXCHER"       Data starts from 2007: No. of values:  54
-# "Variable with missing values:  PCOREH"       Data starts from 1996: No. of values:  98
-# "Variable with missing values:  PCOREH_YTYPCT"      Data starts from 1997: No. of values:  94
-# "Variable with missing values:  PMGSX"      Data starts from 1998: No. of values:  130
-# "Variable with missing values:  PMNW"       Data starts from 1998: No. of values:  130
-# "Variable with missing values:  PXGSX"      Data starts from 1998: No. of values:  130
-# "Variable with missing values:  PXNW"       Data starts from 1998: No. of values:  130
-# "Variable with missing values:  SHTGSVD"      Data starts from 1980: No. of values:  162
+# left_join(ready_monetary_data, ready_unemployment_data, by = 'Time')
