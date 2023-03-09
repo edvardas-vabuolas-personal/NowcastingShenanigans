@@ -8,4 +8,9 @@ boe_data <- read_excel("uncertain-kingdom-nowcasting-gdp-and-its-revisions-datas
                                                               "numeric", "numeric", "numeric", "numeric", "numeric", 
                                                               "numeric", "numeric", "numeric", "numeric", "numeric", 
                                                               "numeric", "numeric", "numeric", "numeric", "numeric"))
+
+
+boe_data_test <- diff(log(boe_data$LFSE))
+
+
 View(boe_data)
