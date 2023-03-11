@@ -1,3 +1,32 @@
+####### Load Packages ##########
+
+library(dplyr) #data manipulation
+library(tidyverse) #data manipulation 
+library(tidyr) #data manipulation
+library(ggplot2) #data visualisation
+library(caret) #ML training 
+library(forecast) #time series forecasting, stationarity testing
+library(readxl) #data import
+library(readr) #data import
+library(strucchange) #structural break test
+library(gapminder)
+
+###### Construct Data Set (UK-MD) ########
+
+balanced_uk_md <- read_csv("balanced_uk_md.csv") # Balanced UK-MD data from 1998
+
+tr_uk_md <- read_csv("tr_uk_md.csv") # Complete transformed UK-MD data from 1948
+
+head(balanced_uk_md) 
+
+###### Construct Data Set (Uncertain Kingdom) #######
+
+uk_nowcast <- read_excel("uncertain-kingdom-nowcasting-gdp-and-its-revisions-dataset.xlsx"
+                         ,sheet = "staticVintage")
+
+uk_nowcast <- uk_nowcast 
+###### Construct Data Set (OECD) ########
+
 source("load_data.R")
 
 data <- load_data();
@@ -17,4 +46,5 @@ VAR_table <- as_tibble(VAR_variables) %>%
   )
 
 AR_table <- VAR_table %>%
-  select(c(time, GDP_Growth))
+  select(c(time, GDP_Growth)) 
+
