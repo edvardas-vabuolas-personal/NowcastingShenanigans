@@ -184,6 +184,10 @@ plot(var_importance)
 var_importance <- varImp(elastic_net)
 plot(var_importance)
 
+elastic_net$bestTune
+lasso$bestTune
+ridge$bestTune
+
 
 
 
