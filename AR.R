@@ -43,7 +43,7 @@ nowcasting_dataset <- read_excel("230312 Nowcasting Dataset.xls",
                                                "numeric", "numeric", "numeric"))
 rownames(nowcasting_dataset) <- nowcasting_dataset$Date
 
-interpolate <- TRUE
+interpolate <- FALSE
 if (interpolate == FALSE) {
   train <- subset(nowcasting_dataset[, 3], subset = nowcasting_dataset$Date <= '2010-12-01')
   test <- subset(nowcasting_dataset[, 3], subset = nowcasting_dataset$Date >= '2011-01-01')
@@ -70,7 +70,7 @@ if (interpolate == FALSE) {
   list_of_predictions <- list()
   for (i in 1:nrow(test_omitted)) {
     # create a new time series object with the updated data
-    temp_model <- arima(train_omitted, order = c(11, 0, 0))
+    temp_model <- arima(train_omitted, order = c(2, 0, 0))
     one_step_ahead_forecast <- predict(temp_model, n.ahead = 1)
     train_omitted[nrow(train_omitted) + 1, ] = test_omitted[i, ]
     list_of_predictions <- append(list_of_predictions, one_step_ahead_forecast$pred)
