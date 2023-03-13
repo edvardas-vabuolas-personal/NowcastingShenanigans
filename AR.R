@@ -12,16 +12,7 @@ library(strucchange) #structural break test
 library(gapminder)
 library(xts)
 
-###### Construct Data Set (UK-MD) ########
-
-balanced_uk_md <- read_csv("balanced_uk_md.csv") # Balanced UK-MD data from 1998
-
-tr_uk_md <- read_csv("tr_uk_md.csv") # Complete transformed UK-MD data from 1948
-
-head(balanced_uk_md) 
-
-###### Construct Data Set (Uncertain Kingdom) #######
-
+###### Load Data ########
 
 nowcasting_dataset <- read_excel("230312 Nowcasting Dataset.xls", 
                                  col_types = c("numeric", "date", "numeric", 
@@ -43,12 +34,22 @@ nowcasting_dataset <- read_excel("230312 Nowcasting Dataset.xls",
                                                "numeric", "numeric", "numeric"))
 rownames(nowcasting_dataset) <- nowcasting_dataset$Date
 
-interpolate <- FALSE
+# Before running the code, change this to False for quarterly forecasting
+# Keep "interpolate <- TRUE" for monthly forecasting
+interpolate <- TRUE
+
+#### Without Interpolation ####
 if (interpolate == FALSE) {
+  
+  # Split data into train and test partitions
   train <- subset(nowcasting_dataset[, 3], subset = nowcasting_dataset$Date <= '2010-12-01')
   test <- subset(nowcasting_dataset[, 3], subset = nowcasting_dataset$Date >= '2011-01-01')
+  
+  # Drop NA values
   train_omitted <- na.omit(train)
   test_omitted <- na.omit(test)
+  
+  # START: Diagnostic checks and lag selection
   
   # Peform ADF test, p-value needs to be less than 0.05 for stationarity
   adf.test(ts(train_omitted))
@@ -67,24 +68,49 @@ if (interpolate == FALSE) {
   colnames(info_critera) <- c("AIC", "BIC")
   rownames(info_critera) <- paste0("AR", 1:nrow(info_critera))
   
+  # END: Diagnostic checks and lag selection
+  
+  # START: One step ahead forecast of test sub sample
+  
+  # Initiate an empty list for predictions
   list_of_predictions <- list()
+  
+  # For each row in the test sub sample
   for (i in 1:nrow(test_omitted)) {
-    # create a new time series object with the updated data
+    
+    # Obtain coefficients AR(2) using train sub sample
     temp_model <- arima(train_omitted, order = c(2, 0, 0))
+    
+    # Forecast one step ahead
     one_step_ahead_forecast <- predict(temp_model, n.ahead = 1)
+    
+    # Update train sub sample with one row from test sub sample
     train_omitted[nrow(train_omitted) + 1, ] = test_omitted[i, ]
+    
+    # Store prediction in the predictions list
     list_of_predictions <- append(list_of_predictions, one_step_ahead_forecast$pred)
   }
+  
+  # Calculate MSFE. SUM(residuals^2) / N
   msfe <- sum((as.numeric(list_of_predictions) - test_omitted$UK_GDP_4)^2) / nrow(test_omitted)
   
-  dates_for_plot <- seq(as.Date("2011-01-01"), as.Date("2018-03-01"), by="quarter")
-  
-  predictions_df <- data.frame(list_of_predictions, dates_for_plot)
+  # END: One step ahead forecast of test sub sample
   
   ### Plot predictions and observations ###
+  
+  # Initiate an array of quarterly dates from 2011 to 2018
+  dates_for_plot <- seq(as.Date("2011-01-01"), as.Date("2018-03-01"), by="quarter")
+  
+  # Put predictions and an array of dates into a dataframe
+  predictions_df <- data.frame(list_of_predictions, dates_for_plot)
+  
+  # Color selection
   colors <- c("Predictions" = "dark green", "Observations" = "steelblue")
+  
+  # Plot
   ggplot() +
-    # Draw line
+    
+    # Draw predictions line
     geom_line(data = predictions_df, 
               aes(
                 x = as.Date(dates_for_plot),
@@ -92,20 +118,35 @@ if (interpolate == FALSE) {
                 color = "Predictions"),
               size = 1) +
     
+    # Draw observations line
     geom_line(data = test_omitted, aes(x = as.Date(dates_for_plot),
                                    y = UK_GDP_4, color = "Observations"), 
               size = 1) +
-    # Change x axis title
+    
+    # Change x and y titles
     labs(x = "Forecast Date", y = "GDP Growth", color = "Legend") +
+    
     # Set x breaks and the desired format for the date labels
-    scale_x_date(date_breaks = "2 months", date_labels = "%m-%Y") +
+    scale_x_date(date_breaks = "3 months", date_labels = "%m-%Y") +
+    
+    # Apply colours
     scale_color_manual(values = colors) + 
+    
+    # Rotate x axis labels by 45 degrees
     theme(axis.text.x = element_text(angle = 45))
+  
+
+  #### With Interpolation ####
 } else {
+  
+  # Interpolate GDP linearly
   nowcasting_dataset$UK_GDP_4 <- na.approx(nowcasting_dataset$UK_GDP_4)
   
+  # Split data into train and test partitions
   train <- subset(nowcasting_dataset[, 3], subset = nowcasting_dataset$Date <= '2010-12-01')
   test <- subset(nowcasting_dataset[, 3], subset = nowcasting_dataset$Date >= '2011-01-01')
+  
+  # START: Diagnostic checks and lag selection
   
   # Peform ADF test, p-value needs to be less than 0.05 for stationarity
   adf.test(ts(train))
@@ -126,24 +167,48 @@ if (interpolate == FALSE) {
 
   ## According to AIC and BIC, best model with interpolated values is AR11
   
+  # END: Diagnostic checks and lag selection
+  
+  # START: One step ahead forecast of test sub sample
+  
+  # Initiate an empty list for predictions
   list_of_predictions <- list()
+  
+  # For each row in the test sub sample
   for (i in 1:nrow(test)) {
-    # create a new time series object with the updated data
+    
+    # Obtain coefficients AR(11) using train sub sample
     temp_model <- arima(train, order = c(11, 0, 0))
+    
+    # Forecast one step ahead
     one_step_ahead_forecast <- predict(temp_model, n.ahead = 1)
+    
+    # Update train sub sample with one row from test sub sample
     train[nrow(train) + 1, ] = test[i, ]
+    
+    # Store prediction in the predictions list
     list_of_predictions <- append(list_of_predictions, one_step_ahead_forecast$pred)
   }
   msfe <- sum((as.numeric(list_of_predictions) - test$UK_GDP_4)^2) / nrow(test)
   
-  dates_for_plot <- seq(as.Date("2011-01-01"), as.Date("2018-03-01"), by="month")
+  # END: One step ahead forecast of test sub sample
   
-  predictions_df <- data.frame(list_of_predictions, dates_for_plot)
   
   ### Plot predictions and observations ###
+  
+  # Initiate an array of monthly dates from 2011 to 2018
+  dates_for_plot <- seq(as.Date("2011-01-01"), as.Date("2018-03-01"), by="month")
+  
+  # Put predictions and an array of dates into a dataframe
+  predictions_df <- data.frame(list_of_predictions, dates_for_plot)
+  
+  # Color selection
   colors <- c("Predictions" = "dark green", "Observations" = "steelblue")
+  
+  # Plot
   ggplot() +
-    # Draw line
+    
+    # Draw predictions line
     geom_line(data = predictions_df, 
               aes(
                 x = as.Date(dates_for_plot),
@@ -151,15 +216,18 @@ if (interpolate == FALSE) {
                 color = "Predictions"),
               size = 1) +
     
+    # Draw observations line
     geom_line(data = test[,1], aes(x = as.Date(dates_for_plot),
                                    y = UK_GDP_4, color = "Observations"), 
               size = 1) +
-    # Change x axis title
+    # Change x and y titles
     labs(x = "Forecast Date", y = "GDP Growth", color = "Legend") +
     # Set x breaks and the desired format for the date labels
     scale_x_date(date_breaks = "2 months", date_labels = "%m-%Y") +
+    
+    # Apply colours
     scale_color_manual(values = colors) + 
+    
+    # Rotate x axis label by 45 degrees
     theme(axis.text.x = element_text(angle = 45))
-  
-
 }
