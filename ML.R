@@ -140,19 +140,19 @@ lasso <- train(
 )
 
 #### Lists of predictions for each model ####
-elastic_net_list_of_predictions <- elastic_net$pred$pred
-ridge_list_of_predictions <- ridge$pred$pred
-lasso_list_of_predictions <- lasso$pred$pred
+elastic_net_list_of_predictions <- elastic_net$pred[, c(3, 4)]
+ridge_list_of_predictions <- ridge$pred[, c(3, 4)]
+lasso_list_of_predictions <- lasso$pred[, c(3, 4)]
 
 #### Calculate MSFEs for each model ####
 elastic_net_msfe <-
   sum((
-    as.numeric(elastic_net_list_of_predictions) - test_set$UK_GDP_4
+    as.numeric(elastic_net_list_of_predictions$pred) - as.numeric(elastic_net_list_of_predictions$obs)
   ) ^ 2) / nrow(test_set)
 ridge_msfe <-
-  sum((as.numeric(ridge_list_of_predictions) - test_set$UK_GDP_4) ^ 2) / nrow(test_set)
+  sum((as.numeric(ridge_list_of_predictions$pred) - as.numeric(ridge_list_of_predictions$obs)) ^ 2) / nrow(test_set)
 lasso_msfe <-
-  sum((as.numeric(lasso_list_of_predictions) - test_set$UK_GDP_4) ^ 2) / nrow(test_set)
+  sum((as.numeric(lasso_list_of_predictions$pred) - as.numeric(lasso_list_of_predictions$obs)) ^ 2) / nrow(test_set)
 
 #### Plot predictions and observations ####
 
@@ -169,7 +169,7 @@ theme_set(theme_bw() +
             theme(legend.position = "top"))
 
 ### Elastic net graph ###
-
+nrow(elastic_net_list_of_predictions)
 # Put predictions and an array of dates into a dataframe
 elastic_net_predictions_df <-
   data.frame(elastic_net_list_of_predictions, dates_for_plot)
@@ -181,7 +181,7 @@ elastic_net_plot <- ggplot() +
     data = elastic_net_predictions_df,
     aes(
       x = as.Date(dates_for_plot),
-      y = as.numeric(elastic_net_list_of_predictions),
+      y = as.numeric(elastic_net_list_of_predictions$pred),
       color = "Predictions"
     ),
     size = 1
@@ -189,10 +189,10 @@ elastic_net_plot <- ggplot() +
   
   # Draw observations line
   geom_line(
-    data = test_set[, 1],
+    data = elastic_net_predictions_df,
     aes(
       x = as.Date(dates_for_plot),
-      y = UK_GDP_4,
+      y = as.numeric(elastic_net_list_of_predictions$obs),
       color = "Observations"
     ),
     size = 1
@@ -217,7 +217,6 @@ elastic_net_plot <- ggplot() +
     y = -0.2,
     label = paste0("MSFE: ", round(elastic_net_msfe, digits = 5))
   )
-
 ### Ridge graph ###
 ridge_predictions_df <-
   data.frame(ridge_list_of_predictions, dates_for_plot)
@@ -230,17 +229,17 @@ ridge_plot <- ggplot() +
     data = ridge_predictions_df,
     aes(
       x = as.Date(dates_for_plot),
-      y = as.numeric(ridge_list_of_predictions),
+      y = as.numeric(ridge_list_of_predictions$pred),
       color = "Predictions"
     ),
     size = 1
   ) +
   # Draw observations line
   geom_line(
-    data = test_set[, 1],
+    data = ridge_predictions_df,
     aes(
       x = as.Date(dates_for_plot),
-      y = UK_GDP_4,
+      y = as.numeric(ridge_list_of_predictions$obs),
       color = "Observations"
     ),
     size = 1
@@ -278,7 +277,7 @@ lasso_plot <- ggplot() +
     data = lasso_predictions_df,
     aes(
       x = as.Date(dates_for_plot),
-      y = as.numeric(lasso_list_of_predictions),
+      y = as.numeric(lasso_list_of_predictions$pred),
       color = "Predictions"
     ),
     size = 1
@@ -286,10 +285,10 @@ lasso_plot <- ggplot() +
   
   # Draw observations line
   geom_line(
-    data = test_set[, 1],
+    data = lasso_predictions_df,
     aes(
       x = as.Date(dates_for_plot),
-      y = UK_GDP_4,
+      y = as.numeric(lasso_list_of_predictions$obs),
       color = "Observations"
     ),
     size = 1
