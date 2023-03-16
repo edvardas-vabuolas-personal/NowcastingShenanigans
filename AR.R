@@ -73,6 +73,7 @@ nowcasting_dataset <- read_excel(
 rownames(nowcasting_dataset) <- nowcasting_dataset$Date
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 # Split data into train and test partitions
 train <-
   subset(nowcasting_dataset[, c(1,2)], subset = nowcasting_dataset$Date <= '2015-12-01')
@@ -133,6 +134,12 @@ for (p in 1:10) {
 # Keep "interpolate <- TRUE" for monthly forecasting
 interpolate <- TRUE
 
+=======
+# Before running the code, change this to False for quarterly forecasting
+# Keep "interpolate <- TRUE" for monthly forecasting
+interpolate <- TRUE
+
+>>>>>>> 7c5913b (deleted Python env)
 #### Without Interpolation ####
 if (interpolate == FALSE) {
   # Split data into train and test partitions
@@ -355,5 +362,8 @@ if (interpolate == FALSE) {
     
     # Rotate x axis label by 45 degrees
     theme(axis.text.x = element_text(angle = 45))
+<<<<<<< HEAD
+>>>>>>> 7c5913b (deleted Python env)
+=======
 >>>>>>> 7c5913b (deleted Python env)
 }
