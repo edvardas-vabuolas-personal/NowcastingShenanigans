@@ -15,10 +15,12 @@ library(xts)
 ###### Load Data ########
 
 nowcasting_dataset <- read_excel(
-  "230312 Nowcasting Dataset.xls",
+  "230315 Nowcasting Dataset.xlsx", sheet = "Nowcasting Dataset",
   col_types = c(
-    "numeric",
     "date",
+    "numeric",
+    "numeric",
+    "numeric",
     "numeric",
     "numeric",
     "numeric",
@@ -70,7 +72,8 @@ nowcasting_dataset <- read_excel(
     "numeric"
   )
 )
-rownames(nowcasting_dataset) <- nowcasting_dataset$Date
+nowcasting_dataset <- nowcasting_dataset[,-c(2,3,5)]
+# rownames(nowcasting_dataset) <- nowcasting_dataset$Date
 
 # Before running the code, change this to False for quarterly forecasting
 # Keep "interpolate <- TRUE" for monthly forecasting

@@ -17,10 +17,12 @@ library("ggpubr") # Allows combining multiple graphs
 
 ###### Load data ######
 nowcasting_dataset <- read_excel(
-  "230312 Nowcasting Dataset.xls",
+  "230315 Nowcasting Dataset.xlsx", sheet = "Nowcasting Dataset",
   col_types = c(
-    "numeric",
     "date",
+    "numeric",
+    "numeric",
+    "numeric",
     "numeric",
     "numeric",
     "numeric",
@@ -72,7 +74,8 @@ nowcasting_dataset <- read_excel(
     "numeric"
   )
 )
-rownames(nowcasting_dataset) <- nowcasting_dataset$Date
+nowcasting_dataset <- nowcasting_dataset[,-c(2,3,5)]
+# rownames(nowcasting_dataset) <- nowcasting_dataset$Date
 
 # Linearly interpolate GDP values
 nowcasting_dataset$UK_GDP_4 <-
