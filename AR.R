@@ -77,18 +77,18 @@ nowcasting_dataset <- nowcasting_dataset[,-c(2,3,5)] #Drops irrelevant columns f
 
 # Split data into train and test partitions
 train <-
-  subset(nowcasting_dataset[, 2], subset = nowcasting_dataset$Date <= '2015-12-01')
+  subset(nowcasting_dataset[, c(1,2)], subset = nowcasting_dataset$Date <= '2015-12-01')
 test <-
-  subset(nowcasting_dataset[, 2], subset = nowcasting_dataset$Date >= '2016-01-01')
+  subset(nowcasting_dataset[, c(1,2)], subset = nowcasting_dataset$Date >= '2016-01-01')
 
 # Drop NA values
 train_omitted <- na.omit(train)
 test_omitted <- na.omit(test)
 
-# START: Diagnostic checks and lag selection
+# START: Diagnostic checks, lag selection and structural break identification
 
 # Perform ADF test, p-value needs to be less than 0.05 for stationarity
-adf.test(ts(train_omitted))
+adf.test(ts(train_omitted$GDP_QNA_RG))
 
 # Perform PP test, p-value needs to be less than 0.05 for stationarity
 gdp.pp <- ur.pp(train_omitted$GDP_QNA_RG, type = "Z-tau", model = "constant", lags = "short", use.lag = NULL)
@@ -97,6 +97,12 @@ summary(gdp.pp)
 # Perform Zandrews test to identify and accomodate for a structural break
 gdp.za <- ur.za(train_omitted$GDP_QNA_RG, model=c("intercept"), lag=1)
 summary(gdp.za)
+
+# Identify structural breaks
+attach(train_omitted)
+x = Fstats(GDP_QNA_RG~1, from = 0.01)
+sctest(x) # tests for the existence of structural change with H0 = there is no structural change
+strucchange::breakpoints(GDP_QNA_RG~1) # identifies the number of breakpoints with corresponding observation number
 
 # Plot ACF function, needs to be decreasing
 acf(train_omitted, lag.max = 20, main = 'ACF')
