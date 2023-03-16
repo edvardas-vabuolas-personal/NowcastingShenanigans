@@ -91,12 +91,11 @@ test_omitted <- na.omit(test)
 adf.test(ts(train_omitted))
 
 # Perform PP test, p-value needs to be less than 0.05 for stationarity
-gdp.pp <- ur.pp(train_omitted, type = c("Z-alpha", "Z-tau"), model = c("constant", "trend"),
-                lags = c("short", "long"), use.lag = NULL)
+gdp.pp <- ur.pp(train_omitted$GDP_QNA_RG, type = "Z-tau", model = "constant", lags = "short", use.lag = NULL)
 summary(gdp.pp)
 
 # Perform Zandrews test to identify and accomodate for a structural break
-gdp.za <- ur.za(train_omitted, model="both", lag=NULL)
+gdp.za <- ur.za(train_omitted$GDP_QNA_RG, model=c("intercept"), lag=1)
 summary(gdp.za)
 
 # Plot ACF function, needs to be decreasing
