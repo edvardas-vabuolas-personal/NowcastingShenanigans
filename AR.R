@@ -133,6 +133,7 @@ if (interpolate == FALSE) {
   # Calculate MSFE. SUM(residuals^2) / N
   msfe <-
     sum((as.numeric(list_of_predictions) - test_omitted$UK_GDP_4) ^ 2) / nrow(test_omitted)
+  ## Accuracy library?
   
   # END: One step ahead forecast of test sub sample
   
