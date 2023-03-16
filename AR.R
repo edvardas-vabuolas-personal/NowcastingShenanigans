@@ -87,6 +87,13 @@ test_omitted <- na.omit(test)
 
 # START: Diagnostic checks, lag selection and structural break identification
 
+# Plot time-series of GDP growth
+ggplot(data = train_omitted, aes(x = train_omitted$Date, y = train_omitted$GDP_QNA_RG)) +
+  geom_line()
+
+# Plot ACF function, needs to be decreasing
+acf(train_omitted, lag.max = 20, main = 'ACF')
+
 # Perform ADF test, p-value needs to be less than 0.05 for stationarity
 adf.test(ts(train_omitted$GDP_QNA_RG))
 
@@ -100,12 +107,22 @@ summary(gdp.za)
 
 # Identify structural breaks
 attach(train_omitted)
-x = Fstats(GDP_QNA_RG~1, from = 0.01)
+x = Fstats(GDP_QNA_RG~1, from = 0.01) # uses the chow test to generate critical values 
 sctest(x) # tests for the existence of structural change with H0 = there is no structural change
 strucchange::breakpoints(GDP_QNA_RG~1) # identifies the number of breakpoints with corresponding observation number
 
-# Plot ACF function, needs to be decreasing
-acf(train_omitted, lag.max = 20, main = 'ACF')
+# Create dummy variables corresponding to each breakpoint identified by strucchange
+break_1 <- 15
+train_omitted$break1 <- ifelse(seq_len(nrow(train_omitted)) < break_1, 0, 1)
+break_2 <- 73
+train_omitted$break2 <- ifelse(seq_len(nrow(train_omitted)) < break_2, 0, 1)
+break_3 <- 88
+train_omitted$break3 <- ifelse(seq_len(nrow(train_omitted)) < break_3, 0, 1)
+
+# Adds the dummy variables to the testing data
+test_omitted$break1 <- 1
+test_omitted$break2 <- 1
+test_omitted$break3 <- 1
 
 # Initiate a matrix that will store AIC and BIC for each AR lag
 info_critera <- matrix(NA, nrow = 10, ncol = 2)
