@@ -73,19 +73,21 @@ nowcasting_dataset <- read_excel(
   )
 )
 nowcasting_dataset <- nowcasting_dataset[,-c(2,3,5)]
+nowcasting_dataset$Predictions <- as.double(0)
+class(nowcasting_dataset$Predictions)
 # rownames(nowcasting_dataset) <- nowcasting_dataset$Date
 
 ###### Process data ######
 
 # Linearly interpolate GDP values
-nowcasting_dataset$UK_GDP_4 <-
-  na.approx(nowcasting_dataset$UK_GDP_4)
+nowcasting_dataset$GDP_QNA_RG <-
+  na.approx(nowcasting_dataset$GDP_QNA_RG)
 
 # Split dataset to train and test sub samples
 train <-
-  subset(nowcasting_dataset[, c(3, 5, 12, 20, 37)], subset = nowcasting_dataset$Date <= '2010-12-01')
+  subset(nowcasting_dataset[, c(2, 4, 11, 19, 36)], subset = nowcasting_dataset$Date <= '2010-12-01')
 test <-
-  subset(nowcasting_dataset[, c(3, 5, 12, 20, 37)], subset = nowcasting_dataset$Date >= '2011-01-01')
+  subset(nowcasting_dataset[, c(2, 4, 11, 19, 36)], subset = nowcasting_dataset$Date >= '2011-01-01')
 
 # The output of VARselect tells us what lag length we should use
 VARselect(train, lag.max = 10, type = 'const')
@@ -101,18 +103,17 @@ for (i in 1:nrow(test)) {
   temp_model <- VAR(train, p = 1, type = 'const')
   
   # Forecast one step ahead; feed one observation from test sub sample
-  one_step_ahead_forecast <-
+  one_step_ahead_forecast_object <-
     predict(temp_model, test[i,], n.ahead = 1)
-  
+  prediction <- one_step_ahead_forecast_object$fcst$GDP_QNA_RG[, 1]
   # Append train sub sample with one observatin from the test sub sample
   train[nrow(train) + 1,] = as.list(test[i, ])
-  
+  nowcasting_dataset[nrow(train) + 1, 'Predictions'] = test[prediction,]
   # Append the list of predictins with the one ahead forecast
   list_of_predictions <-
-    append(list_of_predictions,
-           one_step_ahead_forecast$fcst$UK_GDP_4[, 1])
+    append(list_of_predictions, prediction)
 }
-
+nowcasting_dataset[nrow(train) + 1, 'Predictions'] = test[prediction,]
 # Calculate MSFE. SUM(residuals^2) / N
 msfe <-
   sum((as.numeric(list_of_predictions) - test$UK_GDP_4) ^ 2) / nrow(test)
