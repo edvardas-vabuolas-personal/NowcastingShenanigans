@@ -92,7 +92,7 @@ ggplot(data = train_omitted, aes(x = train_omitted$Date, y = train_omitted$GDP_Q
   geom_line()
 
 # Plot ACF function, needs to be decreasing
-acf(train_omitted, lag.max = 20, main = 'ACF')
+acf(train_omitted$GDP_QNA_RG, lag.max = 20, main = 'ACF')
 
 # Perform ADF test, p-value needs to be less than 0.05 for stationarity
 adf.test(ts(train_omitted$GDP_QNA_RG))
