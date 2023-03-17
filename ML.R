@@ -93,8 +93,10 @@ nowcasting_dataset$GDP_QNA_RG <-
   na.approx(nowcasting_dataset$GDP_QNA_RG)
 
 # Split dataset into train and test partitions
+# nowcasting_dataset <-
+#   subset(nowcasting_dataset, subset = nowcasting_dataset$Date <= '2019-12-01')
 train_set <-
-  subset(nowcasting_dataset[,-c(1)], subset = nowcasting_dataset$Date <= '2015-12-01')
+  subset(nowcasting_dataset[,-c(1)], subset = nowcasting_dataset$Date <= '2010-12-01')
 test_set <-
   subset(nowcasting_dataset[,-c(1)], subset = nowcasting_dataset$Date >= '2016-01-01')
 
@@ -120,6 +122,8 @@ myTimeControl <- trainControl(
 )
 
 ##### Elastic Net #####
+
+# Intial run to obtain hyperparameters
 elastic_net <- train(
   GDP_QNA_RG ~ .,
   data = nowcasting_dataset[,-c(1)],
@@ -130,8 +134,9 @@ elastic_net <- train(
   metric = 'RMSE'
 )
 
-list_of_predictions <- list()
+en_pred <- list()
 
+# For each row in the test sub sample (expanding window)
 for (i in 1:nrow(test_set)){
   elastic_net_temp <- train(
     GDP_QNA_RG ~ .,
@@ -142,19 +147,19 @@ for (i in 1:nrow(test_set)){
     tuneGrid = expand.grid(alpha = elastic_net$bestTune$alpha, lambda = elastic_net$bestTune$lambda),
     metric = 'RMSE'
   )
-  test_pred <- predict(elastic_net_temp, newdata = test_set[i,])
-  print(test_pred)
+  test_pred_en <- predict(elastic_net_temp, newdata = test_set[i,])
   # Update train sub sample with one row from test sub sample
   train_set[nrow(train_set) + 1,] = test_set[i,]
   
   # Store prediction in the predictions list
-  list_of_predictions <-
-    append(list_of_predictions, test_pred)
+  en_pred <-
+    append(en_pred, test_pred_en)
 }
-print(list_of_predictions)
 
 #### Ridge #####
 # https://daviddalpiaz.github.io/r4sl/elastic-net.html
+
+# Initial run to obtain hyperparameters
 ridge <- train(
   GDP_QNA_RG ~ .,
   data = nowcasting_dataset[,-c(1)],
@@ -164,6 +169,28 @@ ridge <- train(
   tuneGrid = expand.grid(alpha = 0, lambda = seq(0, 1, 0.005)),
   metric = 'RMSE'
 )
+
+r_pred <- list()
+
+# For each row in the test sub sample (expanding window)
+for (i in 1:nrow(test_set)){
+  ridge_temp <- train(
+    GDP_QNA_RG ~ .,
+    data = train_set,
+    method = "glmnet",
+    family = "gaussian",
+    tuneLength = 1,
+    tuneGrid = expand.grid(alpha = ridge$bestTune$alpha, lambda = ridge$bestTune$lambda),
+    metric = 'RMSE'
+  )
+  test_pred_r <- predict(ridge_temp, newdata = test_set[i,])
+  # Update train sub sample with one row from test sub sample
+  train_set[nrow(train_set) + 1,] = test_set[i,]
+  
+  # Store prediction in the predictions list
+  r_pred <-
+    append(r_pred, test_pred_r)
+}
 
 #### Lasso ####
 lasso <- train(
@@ -176,6 +203,28 @@ lasso <- train(
   metric = 'RMSE'
 )
 
+l_pred <- list()
+
+# For each row in the test sub sample (expanding window)
+for (i in 1:nrow(test_set)){
+  lasso_temp <- train(
+    GDP_QNA_RG ~ .,
+    data = train_set,
+    method = "glmnet",
+    family = "gaussian",
+    tuneLength = 1,
+    tuneGrid = expand.grid(alpha = lasso$bestTune$alpha, lambda = lasso$bestTune$lambda),
+    metric = 'RMSE'
+  )
+  test_pred_l <- predict(lasso_temp, newdata = test_set[i,])
+  # Update train sub sample with one row from test sub sample
+  train_set[nrow(train_set) + 1,] = test_set[i,]
+  
+  # Store prediction in the predictions list
+  l_pred <-
+    append(l_pred, test_pred_l)
+}
+
 #### Lists of predictions for each model ####
 elastic_net_list_of_predictions <- elastic_net$pred[, c(3, 4)]
 ridge_list_of_predictions <- ridge$pred[, c(3, 4)]
@@ -184,12 +233,12 @@ lasso_list_of_predictions <- lasso$pred[, c(3, 4)]
 #### Calculate MSFEs for each model ####
 elastic_net_msfe <-
   sum((
-    as.numeric(elastic_net_list_of_predictions$pred) - as.numeric(elastic_net_list_of_predictions$obs)
+    as.numeric(en_pred) - as.numeric(test_set$GDP_QNA_RG)
   ) ^ 2) / nrow(test_set)
 ridge_msfe <-
-  sum((as.numeric(ridge_list_of_predictions$pred) - as.numeric(ridge_list_of_predictions$obs)) ^ 2) / nrow(test_set)
+  sum((as.numeric(r_pred) - as.numeric(test_set$GDP_QNA_RG)) ^ 2) / nrow(test_set)
 lasso_msfe <-
-  sum((as.numeric(lasso_list_of_predictions$pred) - as.numeric(lasso_list_of_predictions$obs)) ^ 2) / nrow(test_set)
+  sum((as.numeric(l_pred) - as.numeric(test_set$GDP_QNA_RG)) ^ 2) / nrow(test_set)
 
 #### Plot predictions and observations ####
 
@@ -218,7 +267,7 @@ elastic_net_plot <- ggplot() +
     data = elastic_net_predictions_df,
     aes(
       x = as.Date(dates_for_plot),
-      y = as.numeric(list_of_predictions),
+      y = as.numeric(en_pred),
       color = "Predictions"
     ),
     size = 1
@@ -266,7 +315,7 @@ ridge_plot <- ggplot() +
     data = ridge_predictions_df,
     aes(
       x = as.Date(dates_for_plot),
-      y = as.numeric(ridge_list_of_predictions$pred),
+      y = as.numeric(r_pred),
       color = "Predictions"
     ),
     size = 1
@@ -314,7 +363,7 @@ lasso_plot <- ggplot() +
     data = lasso_predictions_df,
     aes(
       x = as.Date(dates_for_plot),
-      y = as.numeric(lasso_list_of_predictions$pred),
+      y = as.numeric(l_pred),
       color = "Predictions"
     ),
     size = 1
