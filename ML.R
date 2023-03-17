@@ -15,6 +15,7 @@ library(vars)
 library(doParallel) # Multi-threading
 library("ggpubr") # Allows combining multiple graphs
 
+
 ###### Load data ######
 nowcasting_dataset <- read_excel(
   "230315 Nowcasting Dataset.xlsx", sheet = "Nowcasting Dataset",
@@ -77,15 +78,25 @@ nowcasting_dataset <- read_excel(
 nowcasting_dataset <- nowcasting_dataset[,-c(2,3,5)]
 # rownames(nowcasting_dataset) <- nowcasting_dataset$Date
 
+# Identify the column with missing values
+colSums(is.na(nowcasting_dataset))
+
+# Calculate the mean of the column
+column_mean <- mean(nowcasting_dataset$LIBOR_3mth, na.rm = TRUE)
+
+# Replace the missing values with the mean
+nowcasting_dataset$LIBOR_3mth <- ifelse(is.na(nowcasting_dataset$LIBOR_3mth)
+                                        , column_mean, nowcasting_dataset$LIBOR_3mth)
+
 # Linearly interpolate GDP values
-nowcasting_dataset$UK_GDP_4 <-
-  na.approx(nowcasting_dataset$UK_GDP_4)
+nowcasting_dataset$GDP_QNA_RG <-
+  na.approx(nowcasting_dataset$GDP_QNA_RG)
 
 # Split dataset into train and test partitions
 train_set <-
-  subset(nowcasting_dataset[,-c(1, 2)], subset = nowcasting_dataset$Date <= '2010-12-01')
+  subset(nowcasting_dataset[,-c(1)], subset = nowcasting_dataset$Date <= '2015-12-01')
 test_set <-
-  subset(nowcasting_dataset[,-c(1, 2)], subset = nowcasting_dataset$Date >= '2011-01-01')
+  subset(nowcasting_dataset[,-c(1)], subset = nowcasting_dataset$Date >= '2016-01-01')
 
 #### Creating sampling seeds for reproducibility ####
 set.seed(123)
@@ -99,7 +110,7 @@ registerDoParallel(cores = 3)
 # Train controller. 250 train sample, growing window, 1 step ahead forecast
 myTimeControl <- trainControl(
   method = "timeslice",
-  initialWindow = 250,
+  initialWindow = 310,
   horizon = 1,
   fixedWindow = FALSE,
   allowParallel = TRUE,
@@ -110,8 +121,8 @@ myTimeControl <- trainControl(
 
 ##### Elastic Net #####
 elastic_net <- train(
-  UK_GDP_4 ~ .,
-  data = nowcasting_dataset[,-c(1, 2)],
+  GDP_QNA_RG ~ .,
+  data = nowcasting_dataset[,-c(1)],
   method = "glmnet",
   family = "gaussian",
   trControl = myTimeControl,
@@ -119,11 +130,34 @@ elastic_net <- train(
   metric = 'RMSE'
 )
 
+list_of_predictions <- list()
+
+for (i in 1:nrow(test_set)){
+  elastic_net_temp <- train(
+    GDP_QNA_RG ~ .,
+    data = train_set,
+    method = "glmnet",
+    family = "gaussian",
+    tuneLength = 1,
+    tuneGrid = expand.grid(alpha = elastic_net$bestTune$alpha, lambda = elastic_net$bestTune$lambda),
+    metric = 'RMSE'
+  )
+  test_pred <- predict(elastic_net_temp, newdata = test_set[i,])
+  print(test_pred)
+  # Update train sub sample with one row from test sub sample
+  train_set[nrow(train_set) + 1,] = test_set[i,]
+  
+  # Store prediction in the predictions list
+  list_of_predictions <-
+    append(list_of_predictions, test_pred)
+}
+print(list_of_predictions)
+
 #### Ridge #####
 # https://daviddalpiaz.github.io/r4sl/elastic-net.html
 ridge <- train(
-  UK_GDP_4 ~ .,
-  data = nowcasting_dataset[,-c(1, 2)],
+  GDP_QNA_RG ~ .,
+  data = nowcasting_dataset[,-c(1)],
   method = "glmnet",
   family = "gaussian",
   trControl = myTimeControl,
@@ -133,8 +167,8 @@ ridge <- train(
 
 #### Lasso ####
 lasso <- train(
-  UK_GDP_4 ~ .,
-  data = nowcasting_dataset[,-c(1, 2)],
+  GDP_QNA_RG ~ .,
+  data = nowcasting_dataset[,-c(1)],
   method = "glmnet",
   family = "gaussian",
   trControl = myTimeControl,
@@ -161,7 +195,7 @@ lasso_msfe <-
 
 # Initiate an array of monthly dates from 2011 to 2018
 dates_for_plot <-
-  seq(as.Date("2011-01-01"), as.Date("2018-03-01"), by = "month")
+  seq(as.Date("2016-01-01"), as.Date("2022-09-01"), by = "month")
 
 # Color selection
 colors <- c("Predictions" = "steelblue",
@@ -184,7 +218,7 @@ elastic_net_plot <- ggplot() +
     data = elastic_net_predictions_df,
     aes(
       x = as.Date(dates_for_plot),
-      y = as.numeric(elastic_net_list_of_predictions$pred),
+      y = as.numeric(list_of_predictions),
       color = "Predictions"
     ),
     size = 1
@@ -195,7 +229,7 @@ elastic_net_plot <- ggplot() +
     data = elastic_net_predictions_df,
     aes(
       x = as.Date(dates_for_plot),
-      y = as.numeric(elastic_net_list_of_predictions$obs),
+      y = as.numeric(test_set$GDP_QNA_RG),
       color = "Observations"
     ),
     size = 1
@@ -242,7 +276,7 @@ ridge_plot <- ggplot() +
     data = ridge_predictions_df,
     aes(
       x = as.Date(dates_for_plot),
-      y = as.numeric(ridge_list_of_predictions$obs),
+      y = as.numeric(test_set$GDP_QNA_RG),
       color = "Observations"
     ),
     size = 1
@@ -291,7 +325,7 @@ lasso_plot <- ggplot() +
     data = lasso_predictions_df,
     aes(
       x = as.Date(dates_for_plot),
-      y = as.numeric(lasso_list_of_predictions$obs),
+      y = as.numeric(test_set$GDP_QNA_RG),
       color = "Observations"
     ),
     size = 1
