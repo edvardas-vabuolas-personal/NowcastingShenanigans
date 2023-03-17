@@ -73,7 +73,9 @@ nowcasting_dataset <- read_excel(
   )
 )
 nowcasting_dataset <- nowcasting_dataset[,-c(2,3,5)] #Drops irrelevant columns from dataset
-# rownames(nowcasting_dataset) <- nowcasting_dataset$Date
+
+nowcasting_dataset <-
+  subset(nowcasting_dataset, subset = nowcasting_dataset$Date <= '2019-12-01')
 
 # Split data into train and test partitions
 train <-
@@ -187,7 +189,7 @@ msfe <-
 
 # Initiate an array of quarterly dates from 2011 to 2018
 dates_for_plot <-
-  seq(as.Date("2016-01-01"), as.Date("2022-09-01"), by = "quarter")
+  seq(as.Date("2016-01-01"), as.Date("2019-12-01"), by = "quarter")
 
 # Put predictions and an array of dates into a dataframe
 predictions_df <- data.frame(list_of_predictions, dates_for_plot)
@@ -232,4 +234,12 @@ ggplot() +
   scale_color_manual(values = colors) +
   
   # Rotate x axis labels by 45 degrees
-  theme(axis.text.x = element_text(angle = 45))
+  theme(axis.text.x = element_text(angle = 45)) +
+  
+  # Add MSFE to the graph
+  annotate(
+    geom = "text",
+    x = as.Date("2016-07-01"),
+    y = 0.1,
+    label = paste0("MSFE: ", round(msfe, digits = 4))
+  )
