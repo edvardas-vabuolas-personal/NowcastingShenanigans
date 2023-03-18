@@ -126,6 +126,8 @@ for (i in 1:nrow(test)) {
 # nowcasting_dataset[nrow(train) + 1, 'Predictions'] = prediction,]
 
 # Calculate MSFE. SUM(residuals^2) / N
+
+# Create new dataframe called msfe_df and import dataset
 msfe_df <- read_excel(
   "230315 Nowcasting Dataset.xlsx", sheet = "Nowcasting Dataset",
   col_types = c(
@@ -185,11 +187,21 @@ msfe_df <- read_excel(
   )
 )
 msfe_df <- msfe_df[,-c(2,3,5)]
+
+# Removes last row of nowcasting_dataset (not sure why there was a prediction past the final date)
 nowcasting_dataset <- nowcasting_dataset[-nrow(nowcasting_dataset),]
+
+# Appends the predictions column from nowcasting_dataset to msfe_df
 msfe_df$Predictions <- nowcasting_dataset$Predictions
+
+# Removes all columns from datafraame except Date, GDP Growth and GDP Growth predictions
 msfe_df <- subset(msfe_df, select = c("Date", "GDP_QNA_RG", "Predictions"), 
                   subset = nowcasting_dataset$Date >= '2016-01-01')
+
+# Replaces NA values in GDP column with the next non-missing value
 msfe_df <- na.locf(msfe_df, fromLast = TRUE)
+
+# Uses the new complete panel to calculated MSFE for VAR model
 msfe <-
   sum((as.numeric(msfe_df$Predictions) - msfe_df$GDP_QNA_RG) ^ 2) / nrow(msfe_df)
 
