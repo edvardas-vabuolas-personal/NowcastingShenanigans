@@ -12,6 +12,7 @@ library(strucchange) #structural break test
 library(gapminder)
 library(xts)
 library(vars)
+library(zoo)
 
 ###### Load Data ########
 nowcasting_dataset <- read_excel(
@@ -123,9 +124,74 @@ for (i in 1:nrow(test)) {
     append(list_of_predictions, prediction)
 }
 # nowcasting_dataset[nrow(train) + 1, 'Predictions'] = prediction,]
+
 # Calculate MSFE. SUM(residuals^2) / N
+msfe_df <- read_excel(
+  "230315 Nowcasting Dataset.xlsx", sheet = "Nowcasting Dataset",
+  col_types = c(
+    "date",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric"
+  )
+)
+msfe_df <- msfe_df[,-c(2,3,5)]
+nowcasting_dataset <- nowcasting_dataset[-nrow(nowcasting_dataset),]
+msfe_df$Predictions <- nowcasting_dataset$Predictions
+msfe_df <- subset(msfe_df, select = c("Date", "GDP_QNA_RG", "Predictions"), 
+                  subset = nowcasting_dataset$Date >= '2016-01-01')
+msfe_df <- na.locf(msfe_df, fromLast = TRUE)
 msfe <-
-  sum((as.numeric(list_of_predictions) - test$GDP_QNA_RG) ^ 2) / nrow(test)
+  sum((as.numeric(msfe_df$Predictions) - msfe_df$GDP_QNA_RG) ^ 2) / nrow(msfe_df)
 
 ##### Plot predictions and observations #####
 
