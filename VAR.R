@@ -75,9 +75,18 @@ nowcasting_dataset <- read_excel(
 nowcasting_dataset <- nowcasting_dataset[,-c(2,3,5)]
 nowcasting_dataset$Predictions <- as.double(0)
 class(nowcasting_dataset$Predictions)
-# rownames(nowcasting_dataset) <- nowcasting_dataset$Date
 
 ###### Process data ######
+
+# Identify the column with missing values
+colSums(is.na(nowcasting_dataset))
+
+# Calculate the mean of the column
+column_mean <- mean(nowcasting_dataset$LIBOR_3mth, na.rm = TRUE)
+
+# Replace the missing values with the mean
+nowcasting_dataset$LIBOR_3mth <- ifelse(is.na(nowcasting_dataset$LIBOR_3mth)
+                                        , column_mean, nowcasting_dataset$LIBOR_3mth)
 
 # Linearly interpolate GDP values
 nowcasting_dataset$GDP_QNA_RG <-
@@ -85,9 +94,9 @@ nowcasting_dataset$GDP_QNA_RG <-
 
 # Split dataset to train and test sub samples
 train <-
-  subset(nowcasting_dataset[, c(2, 4, 11, 19, 36)], subset = nowcasting_dataset$Date <= '2010-12-01')
+  subset(nowcasting_dataset[, c(2, 4, 11, 19, 36)], subset = nowcasting_dataset$Date <= '2015-12-01')
 test <-
-  subset(nowcasting_dataset[, c(2, 4, 11, 19, 36)], subset = nowcasting_dataset$Date >= '2011-01-01')
+  subset(nowcasting_dataset[, c(2, 4, 11, 19, 36)], subset = nowcasting_dataset$Date >= '2016-01-01')
 
 # The output of VARselect tells us what lag length we should use
 VARselect(train, lag.max = 10, type = 'const')
@@ -106,23 +115,23 @@ for (i in 1:nrow(test)) {
   one_step_ahead_forecast_object <-
     predict(temp_model, test[i,], n.ahead = 1)
   prediction <- one_step_ahead_forecast_object$fcst$GDP_QNA_RG[, 1]
-  # Append train sub sample with one observatin from the test sub sample
+  # Append train sub sample with one observation from the test sub sample
   train[nrow(train) + 1,] = as.list(test[i, ])
-  nowcasting_dataset[nrow(train) + 1, 'Predictions'] = test[prediction,]
+  nowcasting_dataset[nrow(train) + 1, 'Predictions'] = prediction
   # Append the list of predictins with the one ahead forecast
   list_of_predictions <-
     append(list_of_predictions, prediction)
 }
-nowcasting_dataset[nrow(train) + 1, 'Predictions'] = test[prediction,]
+# nowcasting_dataset[nrow(train) + 1, 'Predictions'] = prediction,]
 # Calculate MSFE. SUM(residuals^2) / N
 msfe <-
-  sum((as.numeric(list_of_predictions) - test$UK_GDP_4) ^ 2) / nrow(test)
+  sum((as.numeric(list_of_predictions) - test$GDP_QNA_RG) ^ 2) / nrow(test)
 
 ##### Plot predictions and observations #####
 
 # Initiate an array of monthly dates from 2011 to 2018
 dates_for_plot <-
-  seq(as.Date("2011-01-01"), as.Date("2018-03-01"), by = "month")
+  seq(as.Date("2016-01-01"), as.Date("2022-09-01"), by = "month")
 
 # Put predictions and an array of dates into a dataframe
 predictions_df <- data.frame(list_of_predictions, dates_for_plot)
@@ -151,7 +160,7 @@ ggplot() +
     data = test[, 1],
     aes(
       x = as.Date(dates_for_plot),
-      y = test$UK_GDP_4,
+      y = test$GDP_QNA_RG,
       color = "Observations"
     ),
     size = 1
