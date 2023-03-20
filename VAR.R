@@ -117,8 +117,8 @@ for (i in 1:nrow(test)) {
     predict(temp_model, test[i,], n.ahead = 1)
   prediction <- one_step_ahead_forecast_object$fcst$GDP_QNA_RG[, 1]
   # Append train sub sample with one observation from the test sub sample
-  train[nrow(train) + 1,] = as.list(test[i, ])
   nowcasting_dataset[nrow(train) + 1, 'Predictions'] = prediction
+  train[nrow(train) + 1,] = as.list(test[i, ])
   # Append the list of predictins with the one ahead forecast
   list_of_predictions <-
     append(list_of_predictions, prediction)
@@ -189,7 +189,7 @@ msfe_df <- read_excel(
 msfe_df <- msfe_df[,-c(2,3,5)]
 
 # Removes last row of nowcasting_dataset (not sure why there was a prediction past the final date)
-nowcasting_dataset <- nowcasting_dataset[-nrow(nowcasting_dataset),]
+# nowcasting_dataset <- nowcasting_dataset[-nrow(nowcasting_dataset),]
 
 # Appends the predictions column from nowcasting_dataset to msfe_df
 msfe_df$Predictions <- nowcasting_dataset$Predictions
@@ -241,7 +241,7 @@ ggplot() +
       y = test$GDP_QNA_RG,
       color = "Observations"
     ),
-    size = 1
+    linewidth = 1
   ) +
   
   # Change x and y titles
