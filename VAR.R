@@ -13,6 +13,7 @@ library(gapminder)
 library(xts)
 library(vars)
 library(zoo)
+library(urca)
 
 ###### Load Data ########
 nowcasting_dataset <- read_excel(
@@ -76,6 +77,39 @@ nowcasting_dataset <- read_excel(
 nowcasting_dataset <- nowcasting_dataset[,-c(2,3,5)]
 nowcasting_dataset$Predictions <- as.double(0)
 class(nowcasting_dataset$Predictions)
+
+##### VAR Specification Tests (stationarity, stability) ######
+
+GDP_ADF <- nowcasting_dataset %>% #subset GDP time series 
+  select(GDP_QNA_RG,Date)
+
+GDP_ADF <- drop_na(GDP_ADF) #remove na's 
+
+adf.test(GDP_ADF$GDP_QNA_RG) #test for stationarity = reject null of non stationarity
+
+normality.test(temp_model) #Jarque-Bera, skewness and kurtosis test 
+
+stab.temp <- stability(temp_model, type = "OLS-MOSUM", h = 0.95) #stability testing VAR
+plot(stab.temp)
+
+arch.test(temp_model)
+
+# Running ADF tests for stationarity using manually selected VAR components 
+# As data is detrended, excluding constant/drift
+
+var_adf_nc  <- list(
+  GDP = ur.df(nowcasting_dataset$GDP_QNA_RG, type='none', selectlags = c("BIC")),
+  CPI = ur.df(nowcasting_dataset$CPI_ALL, type='none', selectlags = c("BIC")),
+  BANK = ur.df(nowcasting_dataset$BANK_RATE, type='none', selectlags = c("BIC")),
+  UNE = ur.df(nowcasting_dataset$UNEMP_RATE, type='none', selectlags = c("BIC")),
+  IOP = ur.df(nowcasting_dataset$IOP_PROD, type='none', selectlags = c("BIC")))
+
+summary(var_adf_nc$GDP)
+summary(var_adf_nc$CPI)
+summary(var_adf_nc$BANK)
+summary(var_adf_nc$UNE)
+summary(var_adf_nc$IOP)
+
 
 ###### Process data ######
 
