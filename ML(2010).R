@@ -92,13 +92,14 @@ nowcasting_dataset$LIBOR_3mth <- ifelse(is.na(nowcasting_dataset$LIBOR_3mth)
 nowcasting_dataset$GDP_QNA_RG <-
   na.approx(nowcasting_dataset$GDP_QNA_RG)
 
-# Split dataset into train and test partitions
-# nowcasting_dataset <-
+nowcasting_dataset <-
+  subset(nowcasting_dataset, subset = nowcasting_dataset$Date <= '2010-12-01')
+
 #   subset(nowcasting_dataset, subset = nowcasting_dataset$Date <= '2019-12-01')
 train_set <-
-  subset(nowcasting_dataset[,-c(1)], subset = nowcasting_dataset$Date <= '2010-12-01')
+  subset(nowcasting_dataset[,-c(1)], subset = nowcasting_dataset$Date <= '2005-12-01')
 test_set <-
-  subset(nowcasting_dataset[,-c(1)], subset = nowcasting_dataset$Date >= '2016-01-01')
+  subset(nowcasting_dataset[,-c(1)], subset = nowcasting_dataset$Date >= '2006-01-01')
 
 #### Creating sampling seeds for reproducibility ####
 set.seed(123)
@@ -225,26 +226,104 @@ for (i in 1:nrow(test_set)){
     append(l_pred, test_pred_l)
 }
 
+#### Random Forest ####
+
+
+
 #### Lists of predictions for each model ####
 elastic_net_list_of_predictions <- elastic_net$pred[, c(3, 4)]
 ridge_list_of_predictions <- ridge$pred[, c(3, 4)]
 lasso_list_of_predictions <- lasso$pred[, c(3, 4)]
 
 #### Calculate MSFEs for each model ####
-elastic_net_msfe <-
-  sum((
-    as.numeric(en_pred) - as.numeric(test_set$GDP_QNA_RG)
-  ) ^ 2) / nrow(test_set)
-ridge_msfe <-
-  sum((as.numeric(r_pred) - as.numeric(test_set$GDP_QNA_RG)) ^ 2) / nrow(test_set)
-lasso_msfe <-
-  sum((as.numeric(l_pred) - as.numeric(test_set$GDP_QNA_RG)) ^ 2) / nrow(test_set)
+
+# Create new dataframe called msfe_df and import dataset
+msfe_df <- read_excel(
+  "230315 Nowcasting Dataset.xlsx", sheet = "Nowcasting Dataset",
+  col_types = c(
+    "date",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric",
+    "numeric"
+  )
+)
+msfe_df <- msfe_df[,-c(2,3,5)]
+msfe_df <- subset(msfe_df, subset = msfe_df$Date <= '2010-12-01')
+
+# Appends the predictions column from nowcasting_dataset to msfe_df
+msfe_df <- subset(msfe_df, select = c("Date", "GDP_QNA_RG"), 
+                  subset = nowcasting_dataset$Date >= '2006-01-01')
+
+# Replaces NA values in GDP column with the next non-missing value
+msfe_df <- na.locf(msfe_df, fromLast = TRUE)
+
+# Appends the predictions columns from each ML model to msfe_df
+msfe_df$en_pred <- en_pred
+msfe_df$l_pred <- l_pred
+msfe_df$r_pred <- r_pred
+
+# Uses the new complete panel to calculated MSFE for VAR model
+en_msfe <-
+  sum((as.numeric(msfe_df$en_pred) - msfe_df$GDP_QNA_RG) ^ 2) / nrow(msfe_df)
+r_msfe <-
+  sum((as.numeric(msfe_df$r_pred) - msfe_df$GDP_QNA_RG) ^ 2) / nrow(msfe_df)
+l_msfe <-
+  sum((as.numeric(msfe_df$l_pred) - msfe_df$GDP_QNA_RG) ^ 2) / nrow(msfe_df)
 
 #### Plot predictions and observations ####
 
 # Initiate an array of monthly dates from 2011 to 2018
 dates_for_plot <-
-  seq(as.Date("2016-01-01"), as.Date("2022-09-01"), by = "month")
+  seq(as.Date("2006-01-01"), as.Date("2010-12-01"), by = "month")
 
 # Color selection
 colors <- c("Predictions" = "steelblue",
@@ -299,9 +378,9 @@ elastic_net_plot <- ggplot() +
   # Add MSFE to the graph
   annotate(
     geom = "text",
-    x = as.Date("2016-12-01"),
+    x = as.Date("2006-12-01"),
     y = -0.2,
-    label = paste0("MSFE: ", round(elastic_net_msfe, digits = 5))
+    label = paste0("MSFE: ", round(en_msfe, digits = 5))
   )
 ### Ridge graph ###
 ridge_predictions_df <-
@@ -346,9 +425,9 @@ ridge_plot <- ggplot() +
   # Add MSGE to the graph
   annotate(
     geom = "text",
-    x = as.Date("2016-12-01"),
+    x = as.Date("2006-12-01"),
     y = -0.2,
-    label = paste0("MSFE: ", round(ridge_msfe, digits = 5))
+    label = paste0("MSFE: ", round(r_msfe, digits = 5))
   )
 
 ### Lasso graph ###
@@ -395,9 +474,9 @@ lasso_plot <- ggplot() +
   # Add MSFE to the graph
   annotate(
     geom = "text",
-    x = as.Date("2016-12-01"),
+    x = as.Date("2006-12-01"),
     y = -0.2,
-    label = paste0("MSFE: ", round(lasso_msfe, digits = 5))
+    label = paste0("MSFE: ", round(l_msfe, digits = 5))
   )
 
 # Put all graphs together into a single figure
