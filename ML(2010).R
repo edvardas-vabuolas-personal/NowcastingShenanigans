@@ -13,8 +13,9 @@ library(gapminder)
 library(xts)
 library(vars)
 library(doParallel) # Multi-threading
-library("ggpubr") # Allows combining multiple graphs
-
+library(ggpubr) # Allows combining multiple graphs
+library(ranger)
+library(e1071)
 
 ###### Load data ######
 nowcasting_dataset <- read_excel(
