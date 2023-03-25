@@ -1,25 +1,10 @@
 ####### Load Packages ##########
-# library(dplyr) #data manipulation
-library(tidyverse) #data manipulation
-library(tidyr) #data manipulation
-library(ggplot2) #data visualisation
-library(caret) #ML training
-library(forecast) #time series forecasting, stationarity testing
-library(tseries)
-library(readxl) #data import
-library(readr) #data import
-library(strucchange) #structural break test
-library(gapminder)
-library(xts)
-library(vars)
-library(doParallel) # Multi-threading
-library(ggpubr) # Allows combining multiple graphs
-library(ranger) # Easier implementation of random forest 
-library(e1071) # Support vector machines
+source("packages_manager.R")
 
-###### Load data ######
+###### Load Data ########
 nowcasting_dataset <- read_excel(
-  "230315 Nowcasting Dataset.xlsx", sheet = "Nowcasting Dataset",
+  "230315 Nowcasting Dataset.xlsx",
+  sheet = "Nowcasting Dataset",
   col_types = c(
     "date",
     "numeric",
@@ -76,7 +61,7 @@ nowcasting_dataset <- read_excel(
     "numeric"
   )
 )
-nowcasting_dataset <- nowcasting_dataset[,-c(2,3,5)]
+nowcasting_dataset <- nowcasting_dataset[, -c(2, 3, 5)]
 # rownames(nowcasting_dataset) <- nowcasting_dataset$Date
 
 # Identify the column with missing values
@@ -86,27 +71,29 @@ colSums(is.na(nowcasting_dataset))
 column_mean <- mean(nowcasting_dataset$LIBOR_3mth, na.rm = TRUE)
 
 # Replace the missing values with the mean
-nowcasting_dataset$LIBOR_3mth <- ifelse(is.na(nowcasting_dataset$LIBOR_3mth)
-                                        , column_mean, nowcasting_dataset$LIBOR_3mth)
+nowcasting_dataset$LIBOR_3mth <- ifelse(is.na(nowcasting_dataset$LIBOR_3mth),
+  column_mean, nowcasting_dataset$LIBOR_3mth
+)
 
 # Linearly interpolate GDP values
 nowcasting_dataset$GDP_QNA_RG <-
   na.approx(nowcasting_dataset$GDP_QNA_RG)
 
 nowcasting_dataset <-
-  subset(nowcasting_dataset, subset = nowcasting_dataset$Date <= '2010-12-01')
+  subset(nowcasting_dataset, subset = nowcasting_dataset$Date <= "2010-12-01")
 
 #   subset(nowcasting_dataset, subset = nowcasting_dataset$Date <= '2019-12-01')
 train_set <-
-  subset(nowcasting_dataset[,-c(1)], subset = nowcasting_dataset$Date <= '2005-12-01')
+  subset(nowcasting_dataset[, -c(1)], subset = nowcasting_dataset$Date <= "2005-12-01")
 test_set <-
-  subset(nowcasting_dataset[,-c(1)], subset = nowcasting_dataset$Date >= '2006-01-01')
+  subset(nowcasting_dataset[, -c(1)], subset = nowcasting_dataset$Date >= "2006-01-01")
 
 #### Creating sampling seeds for reproducibility ####
 set.seed(123)
 seeds <- vector(mode = "list", length = 88)
-for (i in 1:527)
+for (i in 1:527) {
   seeds[[i]] <- sample.int(1000, 15)
+}
 
 # Enable multi-threading with three cores
 registerDoParallel(cores = 3)
@@ -118,7 +105,7 @@ myTimeControl <- trainControl(
   horizon = 1,
   fixedWindow = FALSE,
   allowParallel = TRUE,
-  savePredictions = 'final',
+  savePredictions = "final",
   verbose = TRUE,
   seeds = seeds
 )
@@ -128,18 +115,18 @@ myTimeControl <- trainControl(
 # Intial run to obtain hyperparameters
 elastic_net <- train(
   GDP_QNA_RG ~ .,
-  data = nowcasting_dataset[,-c(1)],
+  data = nowcasting_dataset[, -c(1)],
   method = "glmnet",
   family = "gaussian",
   trControl = myTimeControl,
   tuneLength = 15,
-  metric = 'RMSE'
+  metric = "RMSE"
 )
 
 en_pred <- list()
 
 # For each row in the test sub sample (expanding window)
-for (i in 1:nrow(test_set)){
+for (i in 1:nrow(test_set)) {
   elastic_net_temp <- train(
     GDP_QNA_RG ~ .,
     data = train_set,
@@ -147,12 +134,12 @@ for (i in 1:nrow(test_set)){
     family = "gaussian",
     tuneLength = 1,
     tuneGrid = expand.grid(alpha = elastic_net$bestTune$alpha, lambda = elastic_net$bestTune$lambda),
-    metric = 'RMSE'
+    metric = "RMSE"
   )
-  test_pred_en <- predict(elastic_net_temp, newdata = test_set[i,])
+  test_pred_en <- predict(elastic_net_temp, newdata = test_set[i, ])
   # Update train sub sample with one row from test sub sample
-  train_set[nrow(train_set) + 1,] = test_set[i,]
-  
+  train_set[nrow(train_set) + 1, ] <- test_set[i, ]
+
   # Store prediction in the predictions list
   en_pred <-
     append(en_pred, test_pred_en)
@@ -164,18 +151,18 @@ for (i in 1:nrow(test_set)){
 # Initial run to obtain hyperparameters
 ridge <- train(
   GDP_QNA_RG ~ .,
-  data = nowcasting_dataset[,-c(1)],
+  data = nowcasting_dataset[, -c(1)],
   method = "glmnet",
   family = "gaussian",
   trControl = myTimeControl,
   tuneGrid = expand.grid(alpha = 0, lambda = seq(0, 1, 0.005)),
-  metric = 'RMSE'
+  metric = "RMSE"
 )
 
 r_pred <- list()
 
 # For each row in the test sub sample (expanding window)
-for (i in 1:nrow(test_set)){
+for (i in 1:nrow(test_set)) {
   ridge_temp <- train(
     GDP_QNA_RG ~ .,
     data = train_set,
@@ -183,12 +170,12 @@ for (i in 1:nrow(test_set)){
     family = "gaussian",
     tuneLength = 1,
     tuneGrid = expand.grid(alpha = ridge$bestTune$alpha, lambda = ridge$bestTune$lambda),
-    metric = 'RMSE'
+    metric = "RMSE"
   )
-  test_pred_r <- predict(ridge_temp, newdata = test_set[i,])
+  test_pred_r <- predict(ridge_temp, newdata = test_set[i, ])
   # Update train sub sample with one row from test sub sample
-  train_set[nrow(train_set) + 1,] = test_set[i,]
-  
+  train_set[nrow(train_set) + 1, ] <- test_set[i, ]
+
   # Store prediction in the predictions list
   r_pred <-
     append(r_pred, test_pred_r)
@@ -197,18 +184,18 @@ for (i in 1:nrow(test_set)){
 #### Lasso ####
 lasso <- train(
   GDP_QNA_RG ~ .,
-  data = nowcasting_dataset[,-c(1)],
+  data = nowcasting_dataset[, -c(1)],
   method = "glmnet",
   family = "gaussian",
   trControl = myTimeControl,
   tuneGrid = expand.grid(alpha = 1, lambda = seq(0, 1, 0.005)),
-  metric = 'RMSE'
+  metric = "RMSE"
 )
 
 l_pred <- list()
 
 # For each row in the test sub sample (expanding window)
-for (i in 1:nrow(test_set)){
+for (i in 1:nrow(test_set)) {
   lasso_temp <- train(
     GDP_QNA_RG ~ .,
     data = train_set,
@@ -216,12 +203,12 @@ for (i in 1:nrow(test_set)){
     family = "gaussian",
     tuneLength = 1,
     tuneGrid = expand.grid(alpha = lasso$bestTune$alpha, lambda = lasso$bestTune$lambda),
-    metric = 'RMSE'
+    metric = "RMSE"
   )
-  test_pred_l <- predict(lasso_temp, newdata = test_set[i,])
+  test_pred_l <- predict(lasso_temp, newdata = test_set[i, ])
   # Update train sub sample with one row from test sub sample
-  train_set[nrow(train_set) + 1,] = test_set[i,]
-  
+  train_set[nrow(train_set) + 1, ] <- test_set[i, ]
+
   # Store prediction in the predictions list
   l_pred <-
     append(l_pred, test_pred_l)
@@ -240,7 +227,8 @@ lasso_list_of_predictions <- lasso$pred[, c(3, 4)]
 
 # Create new dataframe called msfe_df and import dataset
 msfe_df <- read_excel(
-  "230315 Nowcasting Dataset.xlsx", sheet = "Nowcasting Dataset",
+  "230315 Nowcasting Dataset.xlsx",
+  sheet = "Nowcasting Dataset",
   col_types = c(
     "date",
     "numeric",
@@ -297,12 +285,14 @@ msfe_df <- read_excel(
     "numeric"
   )
 )
-msfe_df <- msfe_df[,-c(2,3,5)]
-msfe_df <- subset(msfe_df, subset = msfe_df$Date <= '2010-12-01')
+msfe_df <- msfe_df[, -c(2, 3, 5)]
+msfe_df <- subset(msfe_df, subset = msfe_df$Date <= "2010-12-01")
 
 # Appends the predictions column from nowcasting_dataset to msfe_df
-msfe_df <- subset(msfe_df, select = c("Date", "GDP_QNA_RG"), 
-                  subset = nowcasting_dataset$Date >= '2006-01-01')
+msfe_df <- subset(msfe_df,
+  select = c("Date", "GDP_QNA_RG"),
+  subset = nowcasting_dataset$Date >= "2006-01-01"
+)
 
 # Replaces NA values in GDP column with the next non-missing value
 msfe_df <- na.locf(msfe_df, fromLast = TRUE)
@@ -314,11 +304,11 @@ msfe_df$r_pred <- r_pred
 
 # Uses the new complete panel to calculated MSFE for VAR model
 en_msfe <-
-  sum((as.numeric(msfe_df$en_pred) - msfe_df$GDP_QNA_RG) ^ 2) / nrow(msfe_df)
+  sum((as.numeric(msfe_df$en_pred) - msfe_df$GDP_QNA_RG)^2) / nrow(msfe_df)
 r_msfe <-
-  sum((as.numeric(msfe_df$r_pred) - msfe_df$GDP_QNA_RG) ^ 2) / nrow(msfe_df)
+  sum((as.numeric(msfe_df$r_pred) - msfe_df$GDP_QNA_RG)^2) / nrow(msfe_df)
 l_msfe <-
-  sum((as.numeric(msfe_df$l_pred) - msfe_df$GDP_QNA_RG) ^ 2) / nrow(msfe_df)
+  sum((as.numeric(msfe_df$l_pred) - msfe_df$GDP_QNA_RG)^2) / nrow(msfe_df)
 
 #### Plot predictions and observations ####
 
@@ -327,12 +317,14 @@ dates_for_plot <-
   seq(as.Date("2006-01-01"), as.Date("2010-12-01"), by = "month")
 
 # Color selection
-colors <- c("Predictions" = "steelblue",
-            "Observations" = "grey")
+colors <- c(
+  "Predictions" = "steelblue",
+  "Observations" = "grey"
+)
 
 # Set graphs legend to the top
 theme_set(theme_bw() +
-            theme(legend.position = "top"))
+  theme(legend.position = "top"))
 
 ### Elastic net graph ###
 nrow(elastic_net_list_of_predictions)
@@ -352,7 +344,7 @@ elastic_net_plot <- ggplot() +
     ),
     size = 1
   ) +
-  
+
   # Draw observations line
   geom_line(
     data = elastic_net_predictions_df,
@@ -363,19 +355,19 @@ elastic_net_plot <- ggplot() +
     ),
     size = 1
   ) +
-  
+
   # Change x and y titles
   labs(x = "Forecast Date", y = "GDP Growth", color = "Legend") +
-  
+
   # Set x breaks and the desired format for the date labels
   scale_x_date(date_breaks = "3 months", date_labels = "%m-%Y") +
-  
+
   # Apply colours
   scale_color_manual(values = colors) +
-  
+
   # Rotate x axis label by 45 degrees
   theme(axis.text.x = element_text(angle = 45)) +
-  
+
   # Add MSFE to the graph
   annotate(
     geom = "text",
@@ -389,7 +381,7 @@ ridge_predictions_df <-
 
 # Plot
 ridge_plot <- ggplot() +
-  
+
   # Draw predictions line
   geom_line(
     data = ridge_predictions_df,
@@ -410,19 +402,19 @@ ridge_plot <- ggplot() +
     ),
     size = 1
   ) +
-  
+
   # Change x and y titles
   labs(x = "Forecast Date", y = "GDP Growth", color = "Legend") +
-  
+
   # Set x breaks and the desired format for the date labels
   scale_x_date(date_breaks = "3 months", date_labels = "%m-%Y") +
-  
+
   # Apply colours
   scale_color_manual(values = colors) +
-  
+
   # Rotate x axis label by 45 degrees
   theme(axis.text.x = element_text(angle = 45)) +
-  
+
   # Add MSGE to the graph
   annotate(
     geom = "text",
@@ -437,7 +429,7 @@ lasso_predictions_df <-
 
 # Plot
 lasso_plot <- ggplot() +
-  
+
   # Draw predictions line
   geom_line(
     data = lasso_predictions_df,
@@ -448,7 +440,7 @@ lasso_plot <- ggplot() +
     ),
     size = 1
   ) +
-  
+
   # Draw observations line
   geom_line(
     data = lasso_predictions_df,
@@ -459,19 +451,19 @@ lasso_plot <- ggplot() +
     ),
     size = 1
   ) +
-  
+
   # Change x and y titles
   labs(x = "Forecast Date", y = "GDP Growth", color = "Legend") +
-  
+
   # Set x breaks and the desired format for the date labels
   scale_x_date(date_breaks = "3 months", date_labels = "%m-%Y") +
-  
+
   # Apply colours
   scale_color_manual(values = colors) +
-  
+
   # Rotate x axis labels by 45 degrees
   theme(axis.text.x = element_text(angle = 45)) +
-  
+
   # Add MSFE to the graph
   annotate(
     geom = "text",
@@ -498,17 +490,17 @@ if (show_variables_summary == TRUE) {
   # Obtain coefficients
   coef(lasso$finalModel, lasso$bestTune$lambda)
   coef(ridge$finalModel, ridge$bestTune$lambda)
-  
+
   # Plot importance of variables
   var_importance <- varImp(ridge)
   plot(var_importance)
-  
+
   var_importance <- varImp(lasso)
   plot(var_importance)
-  
+
   var_importance <- varImp(elastic_net)
   plot(var_importance)
-  
+
   # List Tuning parameters
   elastic_net$bestTune
   lasso$bestTune
