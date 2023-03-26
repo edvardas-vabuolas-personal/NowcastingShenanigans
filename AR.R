@@ -192,9 +192,12 @@ for (year in c(2010, 2019, 2022)) {
     annotate(
       geom = "text",
       x = as.Date(test_start_date) + 180,
-      y = min(min(as.numeric(test_omitted$GDP_QNA_RG)), min(as.numeric(list_of_predictions))) + 0.05,
+      y = -37,
       label = paste0("MSFE: ", round(msfe, digits = 4))
-    )
-  ggsave(paste0('ar_plot_', year, '.png'), ar_plot)
+    ) +
+    
+    #sets a standard scale for the y-axis
+    scale_y_continuous(limits = c(-40, 20))
+  ggsave(paste0('ar_plot_', year, '.png'), ar_plot, width = 7, height = 7) 
 }
   
