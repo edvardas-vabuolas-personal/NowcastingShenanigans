@@ -7,26 +7,7 @@ source("data_visualisation.R")
 ###### Load Data ########
 
 
-INTERVALS <- c(
-  "2010" = c(
-    dataset_end_date = "2010-12-01",
-    train_end_date = "2005-12-01",
-    test_start_date = "2006-01-01",
-    initialWindow = 200
-  ),
-  "2019" = c(
-    dataset_end_date = "2019-12-01",
-    train_end_date = "2015-12-01",
-    test_start_date = "2016-01-01",
-    initialWindow = 310
-  ),
-  "2022" = c(
-    dataset_end_date = FALSE,
-    train_end_date = "2015-12-01",
-    test_start_date = "2016-01-01",
-    initialWindow = 310
-  )
-)
+INTERVALS <- get_intervals()
 predictions <- data.frame(seq(as.Date("2006-01-01"), as.Date("2022-09-01"), by = "month"))
 names(predictions)[1] <- "Date"
 
@@ -386,7 +367,8 @@ for (year in c(2010, 2019, 2022)) {
     nrow = 3,
     common.legend = TRUE
   )
-  ggsave(paste0("arrangedplot_", year, ".png"), figure)
+  figure
+  ggsave(paste0("ML_plot_", year, ".png"), figure)
   show_variables_summary <- FALSE
   if (show_variables_summary == TRUE) {
     # Obtain coefficients

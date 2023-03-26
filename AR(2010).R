@@ -1,6 +1,3 @@
-####### Load Packages ##########
-source("packages_manager.R")
-
 ###### Load Data ########
 
 source("packages_manager.R")
