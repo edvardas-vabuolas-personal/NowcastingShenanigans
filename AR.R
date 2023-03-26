@@ -135,7 +135,7 @@ for (year in c(2010, 2019, 2022)) {
   # Initiate an array of quarterly dates from 2011 to 2018
   dates_for_plot <-
     seq(as.Date(test_start_date), as.Date(if (dataset_end_date != FALSE) dataset_end_date else "2022-09-01"), by = "quarter")
-  
+  print(dates_for_plot)
   
   # Put predictions and an array of dates into a dataframe
   predictions_df <- (data.frame(dates_for_plot, list_of_predictions))
@@ -156,7 +156,7 @@ for (year in c(2010, 2019, 2022)) {
     
     # Draw predictions line
     geom_line(
-      data = predictions_df,
+      data = temp_preds,
       aes(
         x = as.Date(dates_for_plot),
         y = as.numeric(list_of_predictions),
@@ -169,7 +169,7 @@ for (year in c(2010, 2019, 2022)) {
     geom_line(
       data = test_omitted,
       aes(
-        x = as.Date(Date),
+        x = as.Date(dates_for_plot),
         y = GDP_QNA_RG,
         color = "Observations"
       ),
@@ -191,8 +191,8 @@ for (year in c(2010, 2019, 2022)) {
     # Add MSFE to the graph
     annotate(
       geom = "text",
-      x = as.Date("2006-12-01"),
-      y = -1.5,
+      x = as.Date(test_start_date) + 60,
+      y = min(as.numeric(test_omitted$GDP_QNA_RG)) + 0.05,
       label = paste0("MSFE: ", round(msfe, digits = 4))
     )
   ggsave(paste0('ar_plot_', year, '.png'), ar_plot)
