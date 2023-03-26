@@ -91,37 +91,32 @@ for (year in c(2010, 2019, 2022)) {
   # Initiate an empty list for predictions
   list_of_predictions <- list()
   
-  # For each row in the test sub sample
-  for (i in 1:nrow(test_omitted)) {
-    # Obtain coefficients AR(2) using train sub sample
-    temp_model <- arima(train_omitted$GDP_QNA_RG, order = c(2, 0, 0), method = "ML")
-    
-    # Forecast one step ahead
-    one_step_ahead_forecast <- predict(temp_model, n.ahead = 1)
-    
-    # Update train sub sample with one row from test sub sample
-    train_omitted[nrow(train_omitted) + 1, ] <- test_omitted[i, ]
-    
-    # Store prediction in the predictions list
-    list_of_predictions <-
-      append(list_of_predictions, one_step_ahead_forecast$pred)
-  }
-  
+  ###### NON-STRUCTURAL BREAAK MODEL ######
   # # For each row in the test sub sample
   # for (i in 1:nrow(test_omitted)) {
   #   # Obtain coefficients AR(2) using train sub sample
-  #   temp_model <- arima(train_omitted$GDP_QNA_RG, order = c(2, 0, 0), xreg = train_omitted[,c(3,4,5)])
-  #
+  #   temp_model <- arima(train_omitted$GDP_QNA_RG, order = c(2, 0, 0), method = "ML")
+  # 
   #   # Forecast one step ahead
-  #   one_step_ahead_forecast <- predict(temp_model, n.ahead = 1, newxreg = test_omitted[,c(3,4,5)])
-  #
+  #   one_step_ahead_forecast <- predict(temp_model, n.ahead = 1)
+  # 
   #   # Update train sub sample with one row from test sub sample
-  #   train_omitted[nrow(train_omitted) + 1,] = test_omitted[i,]
-  #
+  #   train_omitted[nrow(train_omitted) + 1, ] <- test_omitted[i, ]
+  # 
   #   # Store prediction in the predictions list
   #   list_of_predictions <-
   #     append(list_of_predictions, one_step_ahead_forecast$pred)
   # }
+
+  ###### STRUCTURAL BREAK MODEL ######
+  for (i in 1:nrow(test_omitted)) {
+    temp_model_sb <- lm(GDP_QNA_RG  ~ lag(GDP_QNA_RG, n = 2) + break1 + break2 + break3, data = train_omitted)
+
+    train_omitted[nrow(train_omitted) + 1, ] <- test_omitted[i, ]
+
+    list_of_predictions <-
+          append(list_of_predictions, temp_model_sb$fitted.values[nrow(train_omitted)-3])
+  }
   
   # Calculate MSFE. SUM(residuals^2) / N
   msfe <-
@@ -192,7 +187,7 @@ for (year in c(2010, 2019, 2022)) {
     annotate(
       geom = "text",
       x = as.Date(test_start_date) + 180,
-      y = -37,
+      y = -30,
       label = paste0("MSFE: ", round(msfe, digits = 4))
     ) +
     

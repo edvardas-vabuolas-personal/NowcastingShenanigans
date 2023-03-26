@@ -9,19 +9,14 @@ nowcasting_dataset <- load_data(
 
 ##### VAR Specification Tests (stationarity, stability) ######
 
-GDP_ADF <- nowcasting_dataset %>% # subset GDP time series
-  select(GDP_QNA_RG, Date)
+GDP_ADF <- nowcasting_dataset[,c(1,2)] # subset GDP time series
 
 GDP_ADF <- drop_na(GDP_ADF) # remove na's
 
 adf.test(GDP_ADF$GDP_QNA_RG) # test for stationarity = reject null of non stationarity
 
-normality.test(temp_model) # Jarque-Bera, skewness and kurtosis test
-
-stab.temp <- stability(temp_model, type = "OLS-MOSUM", h = 0.95) # stability testing VAR
-plot(stab.temp)
-
-arch.test(temp_model)
+# stab.temp <- stability(temp_model, type = "OLS-MOSUM", h = 0.95) # stability testing VAR
+# plot(stab.temp)
 
 # Running ADF tests for stationarity using manually selected VAR components
 # As data is detrended, excluding constant/drift
@@ -55,6 +50,25 @@ test <-
     subset = nowcasting_dataset$Date >= "2016-01-01"
   )
 
+# Identify structural breaks
+attach(train)
+x <- Fstats(GDP_QNA_RG ~ 1, from = 0.01) # uses the chow test to generate critical values
+sctest(x) # tests for the existence of structural change with H0 = there is no structural change
+strucchange::breakpoints(GDP_QNA_RG ~ 1) # identifies the number of breakpoints with corresponding observation number
+
+# Create dummy variables corresponding to each breakpoint identified by strucchange
+break_1 <- 46
+train$break1 <- ifelse(seq_len(nrow(train)) < break_1, 0, 1)
+break_2 <- 217
+train$break2 <- ifelse(seq_len(nrow(train)) < break_2, 0, 1)
+break_3 <- 263
+train$break3 <- ifelse(seq_len(nrow(train)) < break_3, 0, 1)
+
+# Adds the dummy variables to the testing data
+test$break1 <- 1
+test$break2 <- 1
+test$break3 <- 1
+
 # The output of VARselect tells us what lag length we should use
 VARselect(train, lag.max = 10, type = "const")
 
@@ -66,11 +80,11 @@ list_of_predictions <- list()
 # For each row in the test sub sample
 for (i in 1:nrow(test)) {
   # Obtain coefficients for VAR(1) lag length
-  temp_model <- VAR(train, p = 1, type = "const")
+  temp_model <- VAR(train[, c(1,2,3,4,5)], p = 1, exogen = train[, c(6, 7, 8)] , type = "const")
 
   # Forecast one step ahead; feed one observation from test sub sample
   one_step_ahead_forecast_object <-
-    predict(temp_model, test[i, ], n.ahead = 1)
+    predict(temp_model, test[i, c(1,2,3,4,5) ], n.ahead = 1, xreg = test[i, c(6, 7, 8)])
   prediction <- one_step_ahead_forecast_object$fcst$GDP_QNA_RG[, 1]
   # Append train sub sample with one observation from the test sub sample
   nowcasting_dataset[nrow(train) + 1, "Predictions"] <- prediction
