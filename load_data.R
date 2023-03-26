@@ -69,7 +69,6 @@ load_data <- function(
     }
 
     if (dataset_end_date != FALSE) {
-        message("bugg")
         nowcasting_dataset <-
             subset(
                 nowcasting_dataset,

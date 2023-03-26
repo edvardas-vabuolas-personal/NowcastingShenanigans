@@ -123,7 +123,7 @@ msfe <-
 ### Plot predictions and observations ###
 
 # Initiate an array of quarterly dates from 2011 to 2018
-dates_for_plot <-
+dates_for_plot_ar <-
   seq(as.Date("2006-01-01"), as.Date("2010-12-01"), by = "quarter")
 
 # Put predictions and an array of dates into a dataframe

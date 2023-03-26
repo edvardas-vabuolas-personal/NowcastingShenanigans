@@ -6,6 +6,7 @@ source("helper_functions.R")
 ###### Load Data ########
 
 nowcasting_dataset <- load_data(
+  dataset_end_date = FALSE,
   interpolate = TRUE
 )
 
