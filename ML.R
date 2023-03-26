@@ -217,10 +217,6 @@ for (year in c(2010, 2019, 2022)) {
     "Observations" = "grey"
   )
 
-  # Set graphs legend to the top
-  theme_set(theme_bw() +
-    theme(legend.position = "top"))
-
   # ### Elastic net graph ###
   # # Put predictions and an array of dates into a dataframe
 
@@ -230,7 +226,167 @@ for (year in c(2010, 2019, 2022)) {
   names(temp_preds)[3] <- paste0("r_pred_", year)
   names(temp_preds)[4] <- paste0("l_pred_", year)
   predictions <- merge(predictions, temp_preds, by = "Date", all = TRUE)
-
+  
+  # Set graphs legend to the top
+  theme_set(theme_bw() +
+              theme(legend.position = "top"))
+  
+  ### Elastic net graph ###
+  # Put predictions and an array of dates into a dataframe
+  elastic_net_predictions_df <-
+    data.frame(en_pred, dates_for_plot)
+  
+  # Plot
+  elastic_net_plot <- ggplot() +
+    # Draw predictions line
+    geom_line(
+      data = elastic_net_predictions_df,
+      aes(
+        x = as.Date(dates_for_plot),
+        y = as.numeric(en_pred),
+        color = "Predictions"
+      ),
+      size = 1
+    ) +
+    
+    # Draw observations line
+    geom_line(
+      data = elastic_net_predictions_df,
+      aes(
+        x = as.Date(dates_for_plot),
+        y = as.numeric(test_set$GDP_QNA_RG),
+        color = "Observations"
+      ),
+      size = 1
+    ) +
+    
+    # Change x and y titles
+    labs(x = "Forecast Date", y = "GDP Growth", color = "Legend") +
+    
+    # Set x breaks and the desired format for the date labels
+    scale_x_date(date_breaks = "3 months", date_labels = "%m-%Y") +
+    
+    # Apply colours
+    scale_color_manual(values = colors) +
+    
+    # Rotate x axis label by 45 degrees
+    theme(axis.text.x = element_text(angle = 45)) +
+    
+    # Add MSFE to the graph
+    annotate(
+      geom = "text",
+      x = as.Date("2006-12-01"),
+      y = -0.2,
+      label = paste0("MSFE: ", round(en_msfe, digits = 5))
+    )
+  ### Ridge graph ###
+  ridge_predictions_df <-
+    data.frame(r_pred, dates_for_plot)
+  
+  # Plot
+  ridge_plot <- ggplot() +
+    
+    # Draw predictions line
+    geom_line(
+      data = ridge_predictions_df,
+      aes(
+        x = as.Date(dates_for_plot),
+        y = as.numeric(r_pred),
+        color = "Predictions"
+      ),
+      size = 1
+    ) +
+    # Draw observations line
+    geom_line(
+      data = ridge_predictions_df,
+      aes(
+        x = as.Date(dates_for_plot),
+        y = as.numeric(test_set$GDP_QNA_RG),
+        color = "Observations"
+      ),
+      size = 1
+    ) +
+    
+    # Change x and y titles
+    labs(x = "Forecast Date", y = "GDP Growth", color = "Legend") +
+    
+    # Set x breaks and the desired format for the date labels
+    scale_x_date(date_breaks = "3 months", date_labels = "%m-%Y") +
+    
+    # Apply colours
+    scale_color_manual(values = colors) +
+    
+    # Rotate x axis label by 45 degrees
+    theme(axis.text.x = element_text(angle = 45)) +
+    
+    # Add MSGE to the graph
+    annotate(
+      geom = "text",
+      x = as.Date("2006-12-01"),
+      y = -0.2,
+      label = paste0("MSFE: ", round(r_msfe, digits = 5))
+    )
+  
+  ### Lasso graph ###
+  lasso_predictions_df <-
+    data.frame(l_pred, dates_for_plot)
+  
+  # Plot
+  lasso_plot <- ggplot() +
+    
+    # Draw predictions line
+    geom_line(
+      data = lasso_predictions_df,
+      aes(
+        x = as.Date(dates_for_plot),
+        y = as.numeric(l_pred),
+        color = "Predictions"
+      ),
+      size = 1
+    ) +
+    
+    # Draw observations line
+    geom_line(
+      data = lasso_predictions_df,
+      aes(
+        x = as.Date(dates_for_plot),
+        y = as.numeric(test_set$GDP_QNA_RG),
+        color = "Observations"
+      ),
+      size = 1
+    ) +
+    
+    # Change x and y titles
+    labs(x = "Forecast Date", y = "GDP Growth", color = "Legend") +
+    
+    # Set x breaks and the desired format for the date labels
+    scale_x_date(date_breaks = "3 months", date_labels = "%m-%Y") +
+    
+    # Apply colours
+    scale_color_manual(values = colors) +
+    
+    # Rotate x axis labels by 45 degrees
+    theme(axis.text.x = element_text(angle = 45)) +
+    
+    # Add MSFE to the graph
+    annotate(
+      geom = "text",
+      x = as.Date("2006-12-01"),
+      y = -0.2,
+      label = paste0("MSFE: ", round(l_msfe, digits = 5))
+    )
+  
+  # Put all graphs together into a single figure
+  figure <- ggarrange(
+    elastic_net_plot,
+    ridge_plot,
+    lasso_plot,
+    labels = c("Elastic Net", "Ridge", "Lasso"),
+    ncol = 1,
+    nrow = 3,
+    common.legend = TRUE
+  )
+  ggsave(paste0("arrangedplot_", year, ".png"), figure)
   show_variables_summary <- FALSE
   if (show_variables_summary == TRUE) {
     # Obtain coefficients
