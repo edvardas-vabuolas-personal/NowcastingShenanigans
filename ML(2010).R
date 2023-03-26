@@ -1,86 +1,14 @@
 ####### Load Packages ##########
 source("packages_manager.R")
+source("load_data.R")
+source("helper_functions.R")
 
 ###### Load Data ########
-nowcasting_dataset <- read_excel(
-  "230315 Nowcasting Dataset.xlsx",
-  sheet = "Nowcasting Dataset",
-  col_types = c(
-    "date",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric"
-  )
+
+nowcasting_dataset <- load_data(
+  dataset_end_date = "2010-12-01",
+  interpolate = TRUE
 )
-nowcasting_dataset <- nowcasting_dataset[, -c(2, 3, 5)]
-# rownames(nowcasting_dataset) <- nowcasting_dataset$Date
-
-# Identify the column with missing values
-colSums(is.na(nowcasting_dataset))
-
-# Calculate the mean of the column
-column_mean <- mean(nowcasting_dataset$LIBOR_3mth, na.rm = TRUE)
-
-# Replace the missing values with the mean
-nowcasting_dataset$LIBOR_3mth <- ifelse(is.na(nowcasting_dataset$LIBOR_3mth),
-  column_mean, nowcasting_dataset$LIBOR_3mth
-)
-
-# Linearly interpolate GDP values
-nowcasting_dataset$GDP_QNA_RG <-
-  na.approx(nowcasting_dataset$GDP_QNA_RG)
-
-nowcasting_dataset <-
-  subset(nowcasting_dataset, subset = nowcasting_dataset$Date <= "2010-12-01")
 
 #   subset(nowcasting_dataset, subset = nowcasting_dataset$Date <= '2019-12-01')
 train_set <-
@@ -90,10 +18,7 @@ test_set <-
 
 #### Creating sampling seeds for reproducibility ####
 set.seed(123)
-seeds <- vector(mode = "list", length = 88)
-for (i in 1:527) {
-  seeds[[i]] <- sample.int(1000, 15)
-}
+seeds <- get_seeds()
 
 # Enable multi-threading with three cores
 registerDoParallel(cores = 3)
@@ -101,7 +26,7 @@ registerDoParallel(cores = 3)
 # Train controller. 250 train sample, growing window, 1 step ahead forecast
 myTimeControl <- trainControl(
   method = "timeslice",
-  initialWindow = 310,
+  initialWindow = 200,
   horizon = 1,
   fixedWindow = FALSE,
   allowParallel = TRUE,
@@ -217,76 +142,10 @@ for (i in 1:nrow(test_set)) {
 #### Random Forest ####
 
 
-
-#### Lists of predictions for each model ####
-elastic_net_list_of_predictions <- elastic_net$pred[, c(3, 4)]
-ridge_list_of_predictions <- ridge$pred[, c(3, 4)]
-lasso_list_of_predictions <- lasso$pred[, c(3, 4)]
-
 #### Calculate MSFEs for each model ####
 
 # Create new dataframe called msfe_df and import dataset
-msfe_df <- read_excel(
-  "230315 Nowcasting Dataset.xlsx",
-  sheet = "Nowcasting Dataset",
-  col_types = c(
-    "date",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric"
-  )
-)
-msfe_df <- msfe_df[, -c(2, 3, 5)]
-msfe_df <- subset(msfe_df, subset = msfe_df$Date <= "2010-12-01")
+msfe_df <- load_data(dataset_end_date = "2010-12-01")
 
 # Appends the predictions column from nowcasting_dataset to msfe_df
 msfe_df <- subset(msfe_df,
@@ -327,10 +186,9 @@ theme_set(theme_bw() +
   theme(legend.position = "top"))
 
 ### Elastic net graph ###
-nrow(elastic_net_list_of_predictions)
 # Put predictions and an array of dates into a dataframe
 elastic_net_predictions_df <-
-  data.frame(elastic_net_list_of_predictions, dates_for_plot)
+  data.frame(en_pred, dates_for_plot)
 
 # Plot
 elastic_net_plot <- ggplot() +
@@ -377,7 +235,7 @@ elastic_net_plot <- ggplot() +
   )
 ### Ridge graph ###
 ridge_predictions_df <-
-  data.frame(ridge_list_of_predictions, dates_for_plot)
+  data.frame(r_pred, dates_for_plot)
 
 # Plot
 ridge_plot <- ggplot() +
@@ -425,7 +283,7 @@ ridge_plot <- ggplot() +
 
 ### Lasso graph ###
 lasso_predictions_df <-
-  data.frame(lasso_list_of_predictions, dates_for_plot)
+  data.frame(l_pred, dates_for_plot)
 
 # Plot
 lasso_plot <- ggplot() +

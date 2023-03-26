@@ -1,76 +1,18 @@
 ####### Load Packages ##########
 source("packages_manager.R")
+source("load_data.R")
 
 ###### Load Data ########
 
-nowcasting_dataset <- read_excel(
-  "230315 Nowcasting Dataset.xlsx", sheet = "Nowcasting Dataset",
-  col_types = c(
-    "date",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric"
-  )
+data <- load_data(
+  dataset_end_date = "2019-12-01"
 )
-nowcasting_dataset <- nowcasting_dataset[,-c(2,3,5)] #Drops irrelevant columns from dataset
-
-nowcasting_dataset <-
-  subset(nowcasting_dataset, subset = nowcasting_dataset$Date <= '2019-12-01')
 
 # Split data into train and test partitions
 train <-
-  subset(nowcasting_dataset[, c(1,2)], subset = nowcasting_dataset$Date <= '2015-12-01')
+  subset(data[, c(1, 2)], subset = data$Date <= "2015-12-01")
 test <-
-  subset(nowcasting_dataset[, c(1,2)], subset = nowcasting_dataset$Date >= '2016-01-01')
+  subset(data[, c(1, 2)], subset = data$Date >= "2016-01-01")
 
 # Drop NA values
 train_omitted <- na.omit(train)
@@ -79,11 +21,11 @@ test_omitted <- na.omit(test)
 # START: Diagnostic checks, lag selection and structural break identification
 
 # Plot time-series of GDP growth
-ggplot(data = train_omitted, aes(x = train_omitted$Date, y = train_omitted$GDP_QNA_RG)) +
+ggplot(data = train_omitted, aes(x = Date, y = GDP_QNA_RG)) +
   geom_line()
 
 # Plot ACF function, needs to be decreasing
-acf(train_omitted$GDP_QNA_RG, lag.max = 20, main = 'ACF')
+acf(train_omitted$GDP_QNA_RG, lag.max = 20, main = "ACF")
 
 # Perform ADF test, p-value needs to be less than 0.05 for stationarity
 adf.test(ts(train_omitted$GDP_QNA_RG))
@@ -93,14 +35,14 @@ gdp.pp <- ur.pp(train_omitted$GDP_QNA_RG, type = "Z-tau", model = "constant", la
 summary(gdp.pp)
 
 # Perform Zandrews test to identify and accomodate for a structural break
-gdp.za <- ur.za(train_omitted$GDP_QNA_RG, model=c("intercept"), lag=1)
+gdp.za <- ur.za(train_omitted$GDP_QNA_RG, model = c("intercept"), lag = 1)
 summary(gdp.za)
 
 # Identify structural breaks
 attach(train_omitted)
-x = Fstats(GDP_QNA_RG~1, from = 0.01) # uses the chow test to generate critical values 
+x <- Fstats(GDP_QNA_RG ~ 1, from = 0.01) # uses the chow test to generate critical values
 sctest(x) # tests for the existence of structural change with H0 = there is no structural change
-strucchange::breakpoints(GDP_QNA_RG~1) # identifies the number of breakpoints with corresponding observation number
+strucchange::breakpoints(GDP_QNA_RG ~ 1) # identifies the number of breakpoints with corresponding observation number
 
 # Create dummy variables corresponding to each breakpoint identified by strucchange
 break_1 <- 15
@@ -119,7 +61,7 @@ test_omitted$break3 <- 1
 info_critera <- matrix(NA, nrow = 10, ncol = 2)
 
 for (p in 1:10) {
-  ar_model = arima(train_omitted$GDP_QNA_RG, order = c(p, 0, 0))
+  ar_model <- arima(train_omitted$GDP_QNA_RG, order = c(p, 0, 0))
   info_critera[p, ] <- c(ar_model$aic, ar_model$bic)
 }
 
@@ -139,13 +81,13 @@ list_of_predictions <- list()
 for (i in 1:nrow(test_omitted)) {
   # Obtain coefficients AR(2) using train sub sample
   temp_model <- arima(train_omitted$GDP_QNA_RG, order = c(2, 0, 0), method = "ML")
-  
+
   # Forecast one step ahead
   one_step_ahead_forecast <- predict(temp_model, n.ahead = 1)
-  
+
   # Update train sub sample with one row from test sub sample
-  train_omitted[nrow(train_omitted) + 1,] = test_omitted[i,]
-  
+  train_omitted[nrow(train_omitted) + 1, ] <- test_omitted[i, ]
+
   # Store prediction in the predictions list
   list_of_predictions <-
     append(list_of_predictions, one_step_ahead_forecast$pred)
@@ -155,13 +97,13 @@ for (i in 1:nrow(test_omitted)) {
 # for (i in 1:nrow(test_omitted)) {
 #   # Obtain coefficients AR(2) using train sub sample
 #   temp_model <- arima(train_omitted$GDP_QNA_RG, order = c(2, 0, 0), xreg = train_omitted[,c(3,4,5)])
-#   
+#
 #   # Forecast one step ahead
 #   one_step_ahead_forecast <- predict(temp_model, n.ahead = 1, newxreg = test_omitted[,c(3,4,5)])
-#   
+#
 #   # Update train sub sample with one row from test sub sample
 #   train_omitted[nrow(train_omitted) + 1,] = test_omitted[i,]
-#   
+#
 #   # Store prediction in the predictions list
 #   list_of_predictions <-
 #     append(list_of_predictions, one_step_ahead_forecast$pred)
@@ -169,7 +111,7 @@ for (i in 1:nrow(test_omitted)) {
 
 # Calculate MSFE. SUM(residuals^2) / N
 msfe <-
-  sum((as.numeric(list_of_predictions) - test_omitted$GDP_QNA_RG) ^ 2) / nrow(test_omitted)
+  sum((as.numeric(list_of_predictions) - test_omitted$GDP_QNA_RG)^2) / nrow(test_omitted)
 ## Accuracy library?
 
 # END: One step ahead forecast of test sub sample
@@ -185,12 +127,14 @@ predictions_df <- data.frame(list_of_predictions, dates_for_plot)
 
 # Color selection
 colors <-
-  c("Predictions" = "dark green",
-    "Observations" = "steelblue")
+  c(
+    "Predictions" = "dark green",
+    "Observations" = "steelblue"
+  )
 
 # Plot
 ggplot() +
-  
+
   # Draw predictions line
   geom_line(
     data = predictions_df,
@@ -201,7 +145,7 @@ ggplot() +
     ),
     size = 1
   ) +
-  
+
   # Draw observations line
   geom_line(
     data = test_omitted,
@@ -212,19 +156,19 @@ ggplot() +
     ),
     size = 1
   ) +
-  
+
   # Change x and y titles
   labs(x = "Forecast Date", y = "GDP Growth", color = "Legend") +
-  
+
   # Set x breaks and the desired format for the date labels
   scale_x_date(date_breaks = "3 months", date_labels = "%m-%Y") +
-  
+
   # Apply colours
   scale_color_manual(values = colors) +
-  
+
   # Rotate x axis labels by 45 degrees
   theme(axis.text.x = element_text(angle = 45)) +
-  
+
   # Add MSFE to the graph
   annotate(
     geom = "text",

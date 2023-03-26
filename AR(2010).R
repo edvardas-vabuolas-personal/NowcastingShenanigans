@@ -3,75 +3,20 @@ source("packages_manager.R")
 
 ###### Load Data ########
 
-nowcasting_dataset <- read_excel(
-  "230315 Nowcasting Dataset.xlsx",
-  sheet = "Nowcasting Dataset",
-  col_types = c(
-    "date",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric"
-  )
-)
-nowcasting_dataset <- nowcasting_dataset[, -c(2, 3, 5)] # Drops irrelevant columns from dataset
+source("packages_manager.R")
+source("load_data.R")
 
-nowcasting_dataset <-
-  subset(nowcasting_dataset, subset = nowcasting_dataset$Date <= "2010-12-01")
+###### Load Data ########
+
+data <- load_data(
+  dataset_end_date = "2010-12-01"
+)
 
 # Split data into train and test partitions
 train <-
-  subset(nowcasting_dataset[, c(1, 2)], subset = nowcasting_dataset$Date <= "2005-12-01")
+  subset(data[, c(1, 2)], subset = data$Date <= "2005-12-01")
 test <-
-  subset(nowcasting_dataset[, c(1, 2)], subset = nowcasting_dataset$Date >= "2006-01-01")
+  subset(data[, c(1, 2)], subset = data$Date >= "2006-01-01")
 
 # Drop NA values
 train_omitted <- na.omit(train)

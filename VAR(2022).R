@@ -1,69 +1,11 @@
 ####### Load Packages ##########
 source("packages_manager.R")
+source("load_data.R")
 
 ###### Load Data ########
-nowcasting_dataset <- read_excel(
-  "230315 Nowcasting Dataset.xlsx",
-  sheet = "Nowcasting Dataset",
-  col_types = c(
-    "date",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric"
-  )
+nowcasting_dataset <- load_data(
+  interpolate = TRUE
 )
-nowcasting_dataset <- nowcasting_dataset[, -c(2, 3, 5)]
-nowcasting_dataset$Predictions <- as.double(0)
-class(nowcasting_dataset$Predictions)
 
 ##### VAR Specification Tests (stationarity, stability) ######
 
@@ -101,26 +43,17 @@ summary(var_adf_nc$IOP)
 
 ###### Process data ######
 
-# Identify the column with missing values
-colSums(is.na(nowcasting_dataset))
-
-# Calculate the mean of the column
-column_mean <- mean(nowcasting_dataset$LIBOR_3mth, na.rm = TRUE)
-
-# Replace the missing values with the mean
-nowcasting_dataset$LIBOR_3mth <- ifelse(is.na(nowcasting_dataset$LIBOR_3mth),
-  column_mean, nowcasting_dataset$LIBOR_3mth
-)
-
-# Linearly interpolate GDP values
-nowcasting_dataset$GDP_QNA_RG <-
-  na.approx(nowcasting_dataset$GDP_QNA_RG)
-
 # Split dataset to train and test sub samples
 train <-
-  subset(nowcasting_dataset[, c(2, 4, 11, 19, 36)], subset = nowcasting_dataset$Date <= "2015-12-01")
+  subset(
+    nowcasting_dataset[, c(2, 4, 11, 19, 36)],
+    subset = nowcasting_dataset$Date <= "2015-12-01"
+  )
 test <-
-  subset(nowcasting_dataset[, c(2, 4, 11, 19, 36)], subset = nowcasting_dataset$Date >= "2016-01-01")
+  subset(
+    nowcasting_dataset[, c(2, 4, 11, 19, 36)],
+    subset = nowcasting_dataset$Date >= "2016-01-01"
+  )
 
 # The output of VARselect tells us what lag length we should use
 VARselect(train, lag.max = 10, type = "const")
@@ -146,74 +79,8 @@ for (i in 1:nrow(test)) {
   list_of_predictions <-
     append(list_of_predictions, prediction)
 }
-# nowcasting_dataset[nrow(train) + 1, 'Predictions'] = prediction,]
-
-# Calculate MSFE. SUM(residuals^2) / N
-
 # Create new dataframe called msfe_df and import dataset
-msfe_df <- read_excel(
-  "230315 Nowcasting Dataset.xlsx",
-  sheet = "Nowcasting Dataset",
-  col_types = c(
-    "date",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric",
-    "numeric"
-  )
-)
-msfe_df <- msfe_df[, -c(2, 3, 5)]
-
-# Removes last row of nowcasting_dataset (not sure why there was a prediction past the final date)
-# nowcasting_dataset <- nowcasting_dataset[-nrow(nowcasting_dataset),]
+msfe_df <- load_data()
 
 # Appends the predictions column from nowcasting_dataset to msfe_df
 msfe_df$Predictions <- nowcasting_dataset$Predictions
