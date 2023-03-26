@@ -53,6 +53,20 @@ for (year in c(2010, 2019, 2022)) {
   )
 
   ##### Elastic Net #####
+  outcomeName <- 'GDP_QNA_RG'
+  predictors <- names(nowcasting_dataset)[!(names(nowcasting_dataset) %in% outcomeName)]
+  names(nowcasting_dataset[,-c(1,2)])
+  rf <- train(
+    GDP_QNA_RG ~ .,
+    x = names(nowcasting_dataset[,-c(1,2)]),
+    y = GDP_QNA_RG,
+    data = nowcasting_dataset[, -c(1)],
+    method = "rf",
+    trControl = myTimeControl,
+    tuneLength = NULL,
+    metric = "RMSE"
+  )
+  rf
 
   # Intial run to obtain hyperparameters
   elastic_net <- train(
@@ -207,16 +221,16 @@ for (year in c(2010, 2019, 2022)) {
   names(temp_preds)[3] <- paste0("r_pred_", year)
   names(temp_preds)[4] <- paste0("l_pred_", year)
   predictions <- merge(predictions, temp_preds, by = "Date", all = TRUE)
-  
+
   # Set graphs legend to the top
   theme_set(theme_bw() +
-              theme(legend.position = "top"))
-  
+    theme(legend.position = "top"))
+
   ### Elastic net graph ###
   # Put predictions and an array of dates into a dataframe
   elastic_net_predictions_df <-
     data.frame(en_pred, dates_for_plot)
-  
+
   # Plot
   elastic_net_plot <- ggplot() +
     # Draw predictions line
@@ -229,7 +243,7 @@ for (year in c(2010, 2019, 2022)) {
       ),
       size = 1
     ) +
-    
+
     # Draw observations line
     geom_line(
       data = elastic_net_predictions_df,
@@ -240,19 +254,19 @@ for (year in c(2010, 2019, 2022)) {
       ),
       size = 1
     ) +
-    
+
     # Change x and y titles
     labs(x = "Forecast Date", y = "GDP Growth", color = "Legend") +
-    
+
     # Set x breaks and the desired format for the date labels
     scale_x_date(date_breaks = "3 months", date_labels = "%m-%Y") +
-    
+
     # Apply colours
     scale_color_manual(values = colors) +
-    
+
     # Rotate x axis label by 45 degrees
     theme(axis.text.x = element_text(angle = 45)) +
-    
+
     # Add MSFE to the graph
     annotate(
       geom = "text",
@@ -263,10 +277,10 @@ for (year in c(2010, 2019, 2022)) {
   ### Ridge graph ###
   ridge_predictions_df <-
     data.frame(r_pred, dates_for_plot)
-  
+
   # Plot
   ridge_plot <- ggplot() +
-    
+
     # Draw predictions line
     geom_line(
       data = ridge_predictions_df,
@@ -287,19 +301,19 @@ for (year in c(2010, 2019, 2022)) {
       ),
       size = 1
     ) +
-    
+
     # Change x and y titles
     labs(x = "Forecast Date", y = "GDP Growth", color = "Legend") +
-    
+
     # Set x breaks and the desired format for the date labels
     scale_x_date(date_breaks = "3 months", date_labels = "%m-%Y") +
-    
+
     # Apply colours
     scale_color_manual(values = colors) +
-    
+
     # Rotate x axis label by 45 degrees
     theme(axis.text.x = element_text(angle = 45)) +
-    
+
     # Add MSGE to the graph
     annotate(
       geom = "text",
@@ -307,14 +321,14 @@ for (year in c(2010, 2019, 2022)) {
       y = -0.2,
       label = paste0("MSFE: ", round(r_msfe, digits = 5))
     )
-  
+
   ### Lasso graph ###
   lasso_predictions_df <-
     data.frame(l_pred, dates_for_plot)
-  
+
   # Plot
   lasso_plot <- ggplot() +
-    
+
     # Draw predictions line
     geom_line(
       data = lasso_predictions_df,
@@ -325,7 +339,7 @@ for (year in c(2010, 2019, 2022)) {
       ),
       size = 1
     ) +
-    
+
     # Draw observations line
     geom_line(
       data = lasso_predictions_df,
@@ -336,19 +350,19 @@ for (year in c(2010, 2019, 2022)) {
       ),
       size = 1
     ) +
-    
+
     # Change x and y titles
     labs(x = "Forecast Date", y = "GDP Growth", color = "Legend") +
-    
+
     # Set x breaks and the desired format for the date labels
     scale_x_date(date_breaks = "3 months", date_labels = "%m-%Y") +
-    
+
     # Apply colours
     scale_color_manual(values = colors) +
-    
+
     # Rotate x axis labels by 45 degrees
     theme(axis.text.x = element_text(angle = 45)) +
-    
+
     # Add MSFE to the graph
     annotate(
       geom = "text",
@@ -356,7 +370,7 @@ for (year in c(2010, 2019, 2022)) {
       y = -0.2,
       label = paste0("MSFE: ", round(l_msfe, digits = 5))
     )
-  
+
   # Put all graphs together into a single figure
   figure <- ggarrange(
     elastic_net_plot,

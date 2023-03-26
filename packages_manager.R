@@ -16,3 +16,5 @@ library(ggpubr) # Allows combining multiple graphs
 library(ranger) # Easier implementation of random forest
 library(e1071) # Support vector machines
 library(zoo)
+library(randomForest)
+library(mlbench)
