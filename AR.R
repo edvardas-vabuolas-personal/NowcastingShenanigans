@@ -191,8 +191,8 @@ for (year in c(2010, 2019, 2022)) {
     # Add MSFE to the graph
     annotate(
       geom = "text",
-      x = as.Date(test_start_date) + 60,
-      y = min(as.numeric(test_omitted$GDP_QNA_RG)) + 0.05,
+      x = as.Date(test_start_date) + 180,
+      y = min(min(as.numeric(test_omitted$GDP_QNA_RG)), min(as.numeric(list_of_predictions))) + 0.05,
       label = paste0("MSFE: ", round(msfe, digits = 4))
     )
   ggsave(paste0('ar_plot_', year, '.png'), ar_plot)
