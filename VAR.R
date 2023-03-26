@@ -96,7 +96,7 @@ for (year in c(2010, 2019, 2022)) {
       "Predictions" = "dark green",
       "Observations" = "steelblue"
     )
-
+  tikz(paste0('./output/var_plot_', year, '.tex'),width=7,height=3)
   # Plot
   var_plot <- ggplot() +
 
@@ -126,7 +126,7 @@ for (year in c(2010, 2019, 2022)) {
     labs(x = "Forecast Date", y = "GDP Growth", color = "Legend") +
 
     # Set x breaks and the desired format for the date labels
-    scale_x_date(date_breaks = "2 months", date_labels = "%m-%Y") +
+    scale_x_date(date_breaks = "3 months", date_labels = "%m-%Y") +
 
     # Apply colours
     scale_color_manual(values = colors) +
@@ -143,6 +143,7 @@ for (year in c(2010, 2019, 2022)) {
     ) +
 
     # sets a standard scale for the y-axis
-    scale_y_continuous(limits = c(-40, 20))
-  ggsave(paste0("var_plot_", year, ".png"), var_plot)
+    scale_y_continuous(limits = c(-30, 20))
+  plot(var_plot)
+  dev.off()
 }

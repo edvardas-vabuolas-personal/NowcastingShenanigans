@@ -53,20 +53,6 @@ for (year in c(2010, 2019, 2022)) {
   )
 
   ##### Elastic Net #####
-  outcomeName <- 'GDP_QNA_RG'
-  predictors <- names(nowcasting_dataset)[!(names(nowcasting_dataset) %in% outcomeName)]
-  names(nowcasting_dataset[,-c(1,2)])
-  rf <- train(
-    GDP_QNA_RG ~ .,
-    x = names(nowcasting_dataset[,-c(1,2)]),
-    y = GDP_QNA_RG,
-    data = nowcasting_dataset[, -c(1)],
-    method = "rf",
-    trControl = myTimeControl,
-    tuneLength = NULL,
-    metric = "RMSE"
-  )
-  rf
 
   # Intial run to obtain hyperparameters
   elastic_net <- train(
@@ -193,12 +179,15 @@ for (year in c(2010, 2019, 2022)) {
   msfe_df$r_pred <- r_pred
 
   # Uses the new complete panel to calculated MSFE for VAR model
-  INTERVALS[paste0(year, ".EN_MSFE")] <-
+  en_msfe <-
     sum((as.numeric(msfe_df$en_pred) - msfe_df$GDP_QNA_RG)^2) / nrow(msfe_df)
-  INTERVALS[paste0(year, ".R_MSFE")] <-
+  r_msfe <-
     sum((as.numeric(msfe_df$r_pred) - msfe_df$GDP_QNA_RG)^2) / nrow(msfe_df)
-  INTERVALS[paste0(year, ".L_MSFE")] <-
+  l_msfe <-
     sum((as.numeric(msfe_df$l_pred) - msfe_df$GDP_QNA_RG)^2) / nrow(msfe_df)
+  INTERVALS[paste0(year, ".EN_MSFE")] <- en_msfe
+  INTERVALS[paste0(year, ".R_MSFE")] <- r_msfe
+  INTERVALS[paste0(year, ".L_MSFE")] <- l_msfe
 
   #### Plot predictions and observations ####
 
@@ -224,13 +213,13 @@ for (year in c(2010, 2019, 2022)) {
 
   # Set graphs legend to the top
   theme_set(theme_bw() +
-    theme(legend.position = "top"))
+    theme(legend.position = "right"))
 
   ### Elastic net graph ###
   # Put predictions and an array of dates into a dataframe
   elastic_net_predictions_df <-
     data.frame(en_pred, dates_for_plot)
-
+  
   # Plot
   elastic_net_plot <- ggplot() +
     # Draw predictions line
@@ -265,13 +254,13 @@ for (year in c(2010, 2019, 2022)) {
     scale_color_manual(values = colors) +
 
     # Rotate x axis label by 45 degrees
-    theme(axis.text.x = element_text(angle = 45)) +
+    theme(axis.text.x = element_text(angle = 45), axis.title.x=element_blank()) +
 
     # Add MSFE to the graph
     annotate(
       geom = "text",
-      x = as.Date("2006-12-01"),
-      y = -0.2,
+      x = as.Date(test_start_date) + 180,
+      y = -30,
       label = paste0("MSFE: ", round(en_msfe, digits = 5))
     )
   ### Ridge graph ###
@@ -312,13 +301,13 @@ for (year in c(2010, 2019, 2022)) {
     scale_color_manual(values = colors) +
 
     # Rotate x axis label by 45 degrees
-    theme(axis.text.x = element_text(angle = 45)) +
+    theme(axis.text.x = element_text(angle = 45), axis.title.x=element_blank()) +
 
     # Add MSGE to the graph
     annotate(
       geom = "text",
-      x = as.Date("2006-12-01"),
-      y = -0.2,
+      x = as.Date(test_start_date) + 180,
+      y = -30,
       label = paste0("MSFE: ", round(r_msfe, digits = 5))
     )
 
@@ -361,13 +350,13 @@ for (year in c(2010, 2019, 2022)) {
     scale_color_manual(values = colors) +
 
     # Rotate x axis labels by 45 degrees
-    theme(axis.text.x = element_text(angle = 45)) +
+    theme(axis.text.x = element_text(angle = 45), axis.title.x=element_blank()) +
 
     # Add MSFE to the graph
     annotate(
       geom = "text",
-      x = as.Date("2006-12-01"),
-      y = -0.2,
+      x = as.Date(test_start_date) + 180,
+      y = -30,
       label = paste0("MSFE: ", round(l_msfe, digits = 5))
     )
 
@@ -381,7 +370,9 @@ for (year in c(2010, 2019, 2022)) {
     nrow = 3,
     common.legend = TRUE
   )
-  figure
+  tikz(paste0('./output/ml_plot_', year, '.tex'),width=7,height=9)
+  plot(figure)
+  dev.off()
   ggsave(paste0("ML_plot_", year, ".png"), figure)
   show_variables_summary <- FALSE
   if (show_variables_summary == TRUE) {

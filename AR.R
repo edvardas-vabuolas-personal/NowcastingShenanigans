@@ -146,6 +146,7 @@ for (year in c(2010, 2019, 2022)) {
     )
   
   # Plot
+  tikz(paste0('./output/ar_plot_', year, '.tex'),width=7,height=3)
   ar_plot <- ggplot() +
     
     # Draw predictions line
@@ -192,6 +193,7 @@ for (year in c(2010, 2019, 2022)) {
     
     #sets a standard scale for the y-axis
     scale_y_continuous(limits = c(-40, 20))
-  ggsave(paste0('ar_plot_', year, '.png'), ar_plot, width = 7, height = 7) 
+  plot(ar_plot)
+  dev.off() 
 }
   

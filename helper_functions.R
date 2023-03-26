@@ -1,9 +1,9 @@
 get_seeds <- function() {
-    seeds <- vector(mode = "list", length = 88)
-    for (i in 1:527) {
-        seeds[[i]] <- sample.int(1000, 15)
-    }
-    return(seeds)
+  seeds <- vector(mode = "list", length = 88)
+  for (i in 1:527) {
+    seeds[[i]] <- sample.int(1000, 15)
+  }
+  return(seeds)
 }
 
 get_intervals <- function() {
@@ -28,4 +28,11 @@ get_intervals <- function() {
     )
   )
   return(INTERVALS)
+}
+
+save_plot <- function(name, plot) {
+  tikz(paste0('./output/',name),width=7,height=6)
+  plot
+  # ggsave(name, plot = plot, path = "./output", width = 7, height = 7, dpi = 1200)
+  dev.off()
 }

@@ -18,3 +18,4 @@ library(e1071) # Support vector machines
 library(zoo)
 library(randomForest)
 library(mlbench)
+library(tikzDevice)
