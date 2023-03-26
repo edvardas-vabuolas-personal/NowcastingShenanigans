@@ -130,7 +130,6 @@ for (year in c(2010, 2019, 2022)) {
   # Initiate an array of quarterly dates from 2011 to 2018
   dates_for_plot <-
     seq(as.Date(test_start_date), as.Date(if (dataset_end_date != FALSE) dataset_end_date else "2022-09-01"), by = "quarter")
-  print(dates_for_plot)
   
   # Put predictions and an array of dates into a dataframe
   predictions_df <- (data.frame(dates_for_plot, list_of_predictions))

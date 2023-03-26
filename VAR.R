@@ -80,7 +80,7 @@ for (year in c(2010, 2019, 2022)) {
 
   # Initiate an array of monthly dates from 2011 to 2018
   dates_for_plot <-
-    seq(as.Date(test_start_date), as.Date(dataset_end_date), by = "month")
+    seq(as.Date(test_start_date), as.Date(if (dataset_end_date != FALSE) dataset_end_date else "2022-09-01"), by = "month")
 
   # Put predictions and an array of dates into a dataframe
   predictions_df <- data.frame(list_of_predictions, dates_for_plot)
@@ -98,7 +98,7 @@ for (year in c(2010, 2019, 2022)) {
     )
 
   # Plot
-  plot <- ggplot() +
+  var_plot <- ggplot() +
 
     # Draw predictions line
     geom_line(
@@ -138,8 +138,11 @@ for (year in c(2010, 2019, 2022)) {
     annotate(
       geom = "text",
       x = as.Date(test_start_date) + 180,
-      y = -40,
+      y = -30,
       label = paste0("MSFE: ", round(msfe, digits = 4))
-    )
-  ggsave(paste0("ar_plot_", year, ".png"), ar_plot)
+    ) +
+
+    # sets a standard scale for the y-axis
+    scale_y_continuous(limits = c(-40, 20))
+  ggsave(paste0("var_plot_", year, ".png"), var_plot)
 }
