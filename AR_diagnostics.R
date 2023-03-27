@@ -37,9 +37,7 @@ summary(gdp_za)
 # Identify structural breaks
 attach(data)
 x <- Fstats(GDP ~ 1, from = 0.01) # uses the chow test to generate critical values
-x
 sctest(x) # tests for the existence of structural change with H0 = there is no structural change
-
 strucchange::breakpoints(GDP ~ 1) # identifies the number of breakpoints with corresponding observation number
 
 # Initiate a matrix that will store AIC and BIC for each AR lag
