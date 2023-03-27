@@ -94,5 +94,8 @@ load_data <- function(
         nowcasting_dataset$LIBOR_3mth
     )
 
+    # Underscore in GDP_QNA_RG causes latex errors
+    names(nowcasting_dataset)[2] <- "GDP"
+
     return(nowcasting_dataset)
 }

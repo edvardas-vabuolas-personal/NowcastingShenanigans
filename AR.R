@@ -6,7 +6,11 @@ source("helper_functions.R")
 
 ###### Load Data ########
 INTERVALS <- get_intervals()
-predictions <- data.frame(seq(as.Date("2006-01-01"), as.Date("2022-09-01"), by = "month"))
+predictions <- data.frame(
+  seq(as.Date("2006-01-01"), as.Date("2022-09-01"),
+    by = "month"
+  )
+)
 names(predictions)[1] <- "Date"
 
 for (year in c(2010, 2019, 2022)) {
@@ -14,9 +18,6 @@ for (year in c(2010, 2019, 2022)) {
   train_end_date <- as.character(INTERVALS[paste0(year, ".train_end_date")])
   test_start_date <- as.character(INTERVALS[paste0(year, ".test_start_date")])
 
-  nowcasting_dataset <- load_data(
-    dataset_end_date = if (dataset_end_date != FALSE) dataset_end_date else FALSE,
-  )
   data <- load_data(
     dataset_end_date = dataset_end_date
   )
@@ -28,63 +29,21 @@ for (year in c(2010, 2019, 2022)) {
     subset(data[, c(1, 2)], subset = data$Date >= test_start_date)
 
   # Drop NA values
-  train_omitted <- na.omit(train)
-  test_omitted <- na.omit(test)
-
-  # START: Diagnostic checks, lag selection and structural break identification
-
-  # Plot time-series of GDP growth
-  plot_of_GDP <- ggplot(data = train_omitted, aes(x = train_omitted$Date, y = train_omitted$GDP_QNA_RG)) +
-    geom_line()
-  ggsave(paste0("plot_of_GDP_", year, ".png"), plot_of_GDP)
-
-  # Plot ACF function, needs to be decreasing
-  acf_plot <- acf(train_omitted$GDP_QNA_RG, lag.max = 20, main = "ACF")
-
-  # Perform ADF test, p-value needs to be less than 0.05 for stationarity
-  adf.test(ts(train_omitted$GDP_QNA_RG))
-
-  # Perform PP test, p-value needs to be less than 0.05 for stationarity
-  gdp.pp <- ur.pp(train_omitted$GDP_QNA_RG, type = "Z-tau", model = "constant", lags = "short", use.lag = NULL)
-  summary(gdp.pp)
-
-  # Perform Zandrews test to identify and accomodate for a structural break
-  gdp.za <- ur.za(train_omitted$GDP_QNA_RG, model = c("intercept"), lag = 1)
-  summary(gdp.za)
-
-  # Identify structural breaks
-  attach(train_omitted)
-  x <- Fstats(GDP_QNA_RG ~ 1, from = 0.01) # uses the chow test to generate critical values
-  sctest(x) # tests for the existence of structural change with H0 = there is no structural change
-  strucchange::breakpoints(GDP_QNA_RG ~ 1) # identifies the number of breakpoints with corresponding observation number
+  train <- na.omit(train)
+  test <- na.omit(test)
 
   # Create dummy variables corresponding to each breakpoint identified by strucchange
   break_1 <- 15
-  train_omitted$break1 <- ifelse(seq_len(nrow(train_omitted)) < break_1, 0, 1)
+  train$break1 <- ifelse(seq_len(nrow(train)) < break_1, 0, 1)
   break_2 <- 73
-  train_omitted$break2 <- ifelse(seq_len(nrow(train_omitted)) < break_2, 0, 1)
+  train$break2 <- ifelse(seq_len(nrow(train)) < break_2, 0, 1)
   break_3 <- 88
-  train_omitted$break3 <- ifelse(seq_len(nrow(train_omitted)) < break_3, 0, 1)
+  train$break3 <- ifelse(seq_len(nrow(train)) < break_3, 0, 1)
 
   # Adds the dummy variables to the testing data
-  test_omitted$break1 <- 1
-  test_omitted$break2 <- 1
-  test_omitted$break3 <- 1
-
-  # Initiate a matrix that will store AIC and BIC for each AR lag
-  info_critera <- matrix(NA, nrow = 10, ncol = 2)
-
-  for (p in 1:10) {
-    ar_model <- arima(train_omitted$GDP_QNA_RG, order = c(p, 0, 0))
-    info_critera[p, ] <- c(ar_model$aic, ar_model$bic)
-  }
-
-  colnames(info_critera) <- c("AIC", "BIC")
-  rownames(info_critera) <- paste0("AR", 1:nrow(info_critera))
-
-  info_critera # Displays info criterion table for optimal lag length
-
-  # END: Diagnostic checks and lag selection
+  test$break1 <- 1
+  test$break2 <- 1
+  test$break3 <- 1
 
   # START: One step ahead forecast of test sub sample
 
@@ -93,15 +52,15 @@ for (year in c(2010, 2019, 2022)) {
 
   ###### NON-STRUCTURAL BREAAK MODEL ######
   # # For each row in the test sub sample
-  # for (i in 1:nrow(test_omitted)) {
+  # for (i in 1:nrow(test)) {
   #   # Obtain coefficients AR(2) using train sub sample
-  #   temp_model <- arima(train_omitted$GDP_QNA_RG, order = c(2, 0, 0), method = "ML")
+  #   temp_model <- arima(train$GDP, order = c(2, 0, 0), method = "ML")
   #
   #   # Forecast one step ahead
   #   one_step_ahead_forecast <- predict(temp_model, n.ahead = 1)
   #
   #   # Update train sub sample with one row from test sub sample
-  #   train_omitted[nrow(train_omitted) + 1, ] <- test_omitted[i, ]
+  #   train[nrow(train) + 1, ] <- test[i, ]
   #
   #   # Store prediction in the predictions list
   #   list_of_predictions <-
@@ -109,18 +68,18 @@ for (year in c(2010, 2019, 2022)) {
   # }
 
   ###### STRUCTURAL BREAK MODEL ######
-  for (i in 1:nrow(test_omitted)) {
-    temp_model_sb <- lm(GDP_QNA_RG ~ lag(GDP_QNA_RG, n = 2) + break1 + break2 + break3, data = train_omitted)
+  for (i in 1:nrow(test)) {
+    temp_model_sb <- lm(GDP ~ lag(GDP, n = 2) + break1 + break2 + break3, data = train)
 
-    train_omitted[nrow(train_omitted) + 1, ] <- test_omitted[i, ]
+    train[nrow(train) + 1, ] <- test[i, ]
 
     list_of_predictions <-
-      append(list_of_predictions, temp_model_sb$fitted.values[nrow(train_omitted) - 3])
+      append(list_of_predictions, temp_model_sb$fitted.values[nrow(train) - 3])
   }
 
   # Calculate MSFE. SUM(residuals^2) / N
   msfe <-
-    sum((as.numeric(list_of_predictions) - test_omitted$GDP_QNA_RG)^2) / nrow(test_omitted)
+    sum((as.numeric(list_of_predictions) - test$GDP)^2) / nrow(test)
   ## Accuracy library?
 
   # END: One step ahead forecast of test sub sample
@@ -161,10 +120,10 @@ for (year in c(2010, 2019, 2022)) {
 
     # Draw observations line
     geom_line(
-      data = test_omitted,
+      data = test,
       aes(
         x = as.Date(dates_for_plot),
-        y = GDP_QNA_RG,
+        y = GDP,
         color = "Observations"
       ),
       size = 1

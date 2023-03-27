@@ -30,7 +30,12 @@ get_intervals <- function() {
   return(INTERVALS)
 }
 
-export_latex <- function(type, name, year, object, width = 7, height = 6) {
+export_latex <- function(type, name, year = "", object, width = 7, height = 6) {
+  # type should be "plot" or "table"
+  # name should be a string, normally a prefix (i.e. ar, var, ml)
+  # object should be a ggplot object for plots or a dataframe for tables
+  # year = "" For cases when plot/table (the object) is not year-specific
+
   if (type == "plot") {
     tikz(
       paste0("./output/", name, "_plot_", year, ".tex"),
@@ -43,8 +48,8 @@ export_latex <- function(type, name, year, object, width = 7, height = 6) {
     print(
       xtable(
         object,
-        caption = paste0(name, year, "_rename_me"),
-        label = paste0("tab:", name, year, "_rename_me")
+        caption = paste0(name, year, "renameme"),
+        label = paste0("tab:", name, year, "renameme")
       ),
       include.rownames = FALSE,
       file = paste0("./output/", name, "_table_", year, ".tex")
