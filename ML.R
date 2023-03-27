@@ -374,6 +374,10 @@ for (year in c(2010, 2019, 2022)) {
   plot(figure)
   dev.off()
   ggsave(paste0("ML_plot_", year, ".png"), figure)
+  
+  
+  
+  
   show_variables_summary <- FALSE
   if (show_variables_summary == TRUE) {
     # Obtain coefficients
@@ -396,6 +400,9 @@ for (year in c(2010, 2019, 2022)) {
     ridge$bestTune
   }
 }
+predictions$Date <- format(predictions$Date, "%d-%m-%Y")
+latex_predictions <- xtable(predictions, caption = "ML Predictions", label = "tab:ml_predictions")
+print(latex_predictions, include.rownames = FALSE, file='./output/ml_predictions.tex')
 
 # figure <- get_figure(predictions)
 # figure
