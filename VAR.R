@@ -2,148 +2,121 @@
 source("packages_manager.R")
 source("load_data.R")
 source("helper_functions.R")
+source("data_visualisation.R")
+
+# Set TRUE to enable Latex export (very slow)
+TEX <- TRUE
 
 INTERVALS <- get_intervals()
-predictions <- data.frame(seq(as.Date("2006-01-01"), as.Date("2022-09-01"), by = "month"))
+predictions <- data.frame(
+  seq(as.Date("2006-01-01"), as.Date("2022-09-01"),
+    by = "month"
+  )
+)
 names(predictions)[1] <- "Date"
 
 for (year in c(2010, 2019, 2022)) {
-  dataset_end_date <- as.character(INTERVALS[paste0(year, ".dataset_end_date")])
-  train_end_date <- as.character(INTERVALS[paste0(year, ".train_end_date")])
-  test_start_date <- as.character(INTERVALS[paste0(year, ".test_start_date")])
+  dataset_end_date <- as.character(INTERVALS[[year]]["dataset_end_date"])
+  train_end_date <- as.character(INTERVALS[[year]]["train_end_date"])
+  test_start_date <- as.character(INTERVALS[[year]]["test_start_date"])
+  structural_breakpoints <- as.list(INTERVALS[[(paste0(year, ".break_points"))]])
 
   ###### Load Data ########
-  nowcasting_dataset <- load_data(
+  data <- load_data(
     dataset_end_date = dataset_end_date,
     interpolate = TRUE
   )
 
+  columns <- c(2, 4, 11, 19, 36)
+  for (i in seq_along(structural_breakpoints)) {
+    data[, paste0("Break_", i)] <- ifelse(seq_len(nrow(data)) < structural_breakpoints[i], 0, 1)
+    columns <- append(columns, 50 + i)
+  }
   ###### Process data ######
-
   # Split dataset to train and test sub samples
   train <-
     subset(
-      nowcasting_dataset[, c(2, 4, 11, 19, 36)],
-      subset = nowcasting_dataset$Date <= train_end_date
+      data[, columns],
+      subset = data$Date <= train_end_date
     )
   test <-
     subset(
-      nowcasting_dataset[, c(2, 4, 11, 19, 36)],
-      subset = nowcasting_dataset$Date >= test_start_date
+      data[, columns],
+      subset = data$Date >= test_start_date
     )
 
   # The output of VARselect tells us what lag length we should use
-  var_select <- VARselect(train, lag.max = 10, type = "const")
+  # var_select <- VARselect(train, lag.max = 10, type = "const")
 
-  ###### One step ahead forecast of test sub sample  ######
-
-  # Initiate an empty list for predictions
-  list_of_predictions <- list()
-
+  lag <- 2
   # For each row in the test sub sample
   for (i in 1:nrow(test)) {
     # Obtain coefficients for VAR(1) lag length
-    temp_model <- VAR(train, p = 1, type = "const")
+    temp_model <- VAR(
+      y = train[, c(1, 2, 3, 4, 5)],
+      p = lag,
+      type = "const",
+      exogen = as.matrix(train[, -c(1, 2, 3, 4, 5)])
+    )
 
     # Forecast one step ahead; feed one observation from test sub sample
-    one_step_ahead_forecast_object <-
-      predict(temp_model, test[i, ], n.ahead = 1)
-    prediction <- one_step_ahead_forecast_object$fcst$GDP_QNA_RG[, 1]
+    forecast_object <-
+      predict(
+        object = temp_model,
+        ci = 0.95,
+        n.ahead = 1,
+        dumvar = as.matrix(train[i, -c(1, 2, 3, 4, 5)])
+      )
+    prediction <- forecast_object$fcst$GDP[, 1]
     # Append train sub sample with one observation from the test sub sample
-    nowcasting_dataset[nrow(train) + 1, "Predictions"] <- prediction
+    data[nrow(train) + 1, "Predictions"] <- prediction
     train[nrow(train) + 1, ] <- as.list(test[i, ])
-    # Append the list of predictins with the one ahead forecast
-    list_of_predictions <-
-      append(list_of_predictions, prediction)
   }
 
-  # Create new dataframe called msfe_df and import dataset
+  # # Create new dataframe called msfe_df and import dataset
   msfe_df <- load_data(dataset_end_date = dataset_end_date)
 
-  # Appends the predictions column from nowcasting_dataset to msfe_df
-  msfe_df$Predictions <- nowcasting_dataset$Predictions
+  # # Appends the predictions column from data to msfe_df
+  msfe_df$Predictions <- data$Predictions
 
-  # Removes all columns from datafraame except Date, GDP Growth and GDP Growth predictions
+  # # Removes all columns from datafraame except Date, GDP Growth and GDP Growth predictions
   msfe_df <- subset(msfe_df,
-    select = c("Date", "GDP_QNA_RG", "Predictions"),
-    subset = nowcasting_dataset$Date >= test_start_date
+    select = c("Date", "GDP", "Predictions"),
+    subset = data$Date >= test_start_date
   )
 
   # Replaces NA values in GDP column with the next non-missing value
   msfe_df <- na.locf(msfe_df, fromLast = TRUE)
 
-  # Uses the new complete panel to calculated MSFE for VAR model
-  msfe <-
-    sum((as.numeric(msfe_df$Predictions) - msfe_df$GDP_QNA_RG)^2) / nrow(msfe_df)
+  # # Uses the new complete panel to calculated MSFE for VAR model
+  msfe <- calculate_msfe(
+    predictions = msfe_df$Predictions,
+    oos = msfe_df$GDP
+  )
+  print(msfe)
 
-  ##### Plot predictions and observations #####
+  # ##### Plot predictions and observations #####
 
-  # Initiate an array of monthly dates from 2011 to 2018
+  msfe_df$Date <- as.Date(msfe_df$Date)
+  # Initiate an array of quarterly dates from 2011 to 2018
   dates_for_plot <-
-    seq(as.Date(test_start_date), as.Date(if (dataset_end_date != FALSE) dataset_end_date else "2022-09-01"), by = "month")
+    seq(as.Date(min(msfe_df$Date)), as.Date(max(msfe_df$Date)), by = "month")
 
-  # Put predictions and an array of dates into a dataframe
-  predictions_df <- data.frame(list_of_predictions, dates_for_plot)
-  temp_preds <- data.frame(dates_for_plot, as.data.frame(as.numeric(list_of_predictions)))
-  names(temp_preds)[1] <- "Date"
-  names(temp_preds)[2] <- paste0("ar_pred_", year)
-
-  predictions <- merge(predictions, temp_preds, by = "Date", all = TRUE)
-
-  # Color selection
-  colors <-
-    c(
-      "Predictions" = "dark green",
-      "Observations" = "steelblue"
-    )
-  tikz(paste0('./output/var_plot_', year, '.tex'),width=7,height=3)
   # Plot
-  var_plot <- ggplot() +
+  var_plot <- make_plot(
+    dates = dates_for_plot,
+    predictions = msfe_df$Predictions,
+    observations = msfe_df$GDP,
+    msfe = msfe,
+    label = glue("VAR({lag}) {year}; {length(structural_breakpoints)} Structural Break(s); NOCB Interpolation"),
+    scale_y = c(-40, 20)
+  )
+  # ar_plot
+  export_latex("plot", "var", year, var_plot, height = 3, TEX = TEX)
 
-    # Draw predictions line
-    geom_line(
-      data = temp_preds,
-      aes(
-        x = as.Date(dates_for_plot),
-        y = as.numeric(list_of_predictions),
-        color = "Predictions"
-      ),
-      size = 1
-    ) +
+  names(msfe_df)[3] <- c(glue("VAR({lag}}) {year}"))
 
-    # Draw observations line
-    geom_line(
-      data = test[, 1],
-      aes(
-        x = as.Date(dates_for_plot),
-        y = test$GDP_QNA_RG,
-        color = "Observations"
-      ),
-      linewidth = 1
-    ) +
-
-    # Change x and y titles
-    labs(x = "Forecast Date", y = "GDP Growth", color = "Legend") +
-
-    # Set x breaks and the desired format for the date labels
-    scale_x_date(date_breaks = "3 months", date_labels = "%m-%Y") +
-
-    # Apply colours
-    scale_color_manual(values = colors) +
-
-    # Rotate x axis labels by 45 degrees
-    theme(axis.text.x = element_text(angle = 45)) +
-
-    # Add MSFE to the graph
-    annotate(
-      geom = "text",
-      x = as.Date(test_start_date) + 180,
-      y = -30,
-      label = paste0("MSFE: ", round(msfe, digits = 4))
-    ) +
-
-    # sets a standard scale for the y-axis
-    scale_y_continuous(limits = c(-30, 20))
-  plot(var_plot)
-  dev.off()
+  predictions <- merge(predictions, msfe_df[, c(1, 3)], by = "Date", all = TRUE)
 }
+predictions$Date <- format(predictions$Date, "%d-%m-%Y")
+export_latex("table", "var", year, predictions, TEX = TEX)

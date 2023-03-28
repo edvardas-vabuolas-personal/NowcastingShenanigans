@@ -3,7 +3,7 @@ source("load_data.R")
 source("helper_functions.R")
 
 # START: Diagnostic checks, lag selection and structural break identification
-data <- load_data()
+data <- load_data(interpolate=FALSE)
 data <- na.omit(data)
 # Plot time-series of GDP growth
 gdp_plot <- ggplot() +

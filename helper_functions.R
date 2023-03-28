@@ -31,9 +31,9 @@ get_intervals <- function() {
   INTERVALS[[2010]] <- params_2010
   INTERVALS[[2019]] <- params_2019
   INTERVALS[[2022]] <- params_2022
-  INTERVALS[["2010.break_points_quarterly"]] <- c(73)
-  INTERVALS[["2019.break_points_quarterly"]] <- c(73)
-  INTERVALS[["2022.break_points_quarterly"]] <- c(73, 122)
+  INTERVALS[["2010.break_points"]] <- c(217)
+  INTERVALS[["2019.break_points"]] <- c(217)
+  INTERVALS[["2022.break_points"]] <- c(217, 361)
   
   return(INTERVALS)
 }
