@@ -39,8 +39,8 @@ test_set <-
 set.seed(123)
 seeds <- get_seeds()
 
-# Enable multi-threading with three cores
-registerDoParallel(cores = 3)
+# Enable multi-threading with four cores
+registerDoParallel(cores = 4)
 
 # Train controller. 250 train sample, growing window, 1 step ahead forecast
 myTimeControl <- trainControl(
@@ -160,23 +160,27 @@ for (i in 1:nrow(test_set)) {
 
 #### Random Forest ####
 
-ntrees <- c(500)
-nodesize <- c(1,2)
-rf_prms <- expand.grid(ntrees = ntrees,
-                       nodesize = nodesize)
-tuneGrid <- expand.grid(mtry = c(5)) #tuned parameter value = 5
+ntrees <- c(100) #ntree selection. 
+# Higher number will increase accuracy, but become computationally expensive 
+
+
+# nodesize <- c(1,2)
+# rf_prms <- expand.grid(ntrees = ntrees,
+#                        nodesize = nodesize)
+# tuneGrid <- expand.grid(.mtry = 6) #tuned parameter value = 5
 
 rf_pred <- list()
 
 
 for(i in 1:nrow(test_set)){
 
-  set.seed(70)
   rf_model <- train(GDP~.,
                     data = train_set,
                     method = "rf",
                     metric = "RMSE",
-                    tuneGrid = tuneGrid)
+                    ntree = ntrees)
+  
+
 
   test_pred_rf <- predict(rf_model, newdata = test_set[i, ])
   # Update train sub sample with one row from test sub sample
