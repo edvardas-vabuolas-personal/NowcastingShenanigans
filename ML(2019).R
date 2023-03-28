@@ -45,7 +45,7 @@ myTimeControl <- trainControl(
 
 # Intial run to obtain hyperparameters
 elastic_net <- train(
-  GDP_QNA_RG ~ .,
+  GDP ~ .,
   data = nowcasting_dataset[, -c(1)],
   method = "glmnet",
   family = "gaussian",
@@ -59,7 +59,7 @@ en_pred <- list()
 # For each row in the test sub sample (expanding window)
 for (i in 1:nrow(test_set)) {
   elastic_net_temp <- train(
-    GDP_QNA_RG ~ .,
+    GDP ~ .,
     data = train_set,
     method = "glmnet",
     family = "gaussian",
@@ -81,7 +81,7 @@ for (i in 1:nrow(test_set)) {
 
 # Initial run to obtain hyperparameters
 ridge <- train(
-  GDP_QNA_RG ~ .,
+  GDP ~ .,
   data = nowcasting_dataset[, -c(1)],
   method = "glmnet",
   family = "gaussian",
@@ -95,7 +95,7 @@ r_pred <- list()
 # For each row in the test sub sample (expanding window)
 for (i in 1:nrow(test_set)) {
   ridge_temp <- train(
-    GDP_QNA_RG ~ .,
+    GDP ~ .,
     data = train_set,
     method = "glmnet",
     family = "gaussian",
@@ -114,7 +114,7 @@ for (i in 1:nrow(test_set)) {
 
 #### Lasso ####
 lasso <- train(
-  GDP_QNA_RG ~ .,
+  GDP ~ .,
   data = nowcasting_dataset[, -c(1)],
   method = "glmnet",
   family = "gaussian",
@@ -128,7 +128,7 @@ l_pred <- list()
 # For each row in the test sub sample (expanding window)
 for (i in 1:nrow(test_set)) {
   lasso_temp <- train(
-    GDP_QNA_RG ~ .,
+    GDP ~ .,
     data = train_set,
     method = "glmnet",
     family = "gaussian",
@@ -147,6 +147,38 @@ for (i in 1:nrow(test_set)) {
 
 #### Random Forest ####
 
+ntrees <- c(100) #ntree selection. 
+# Higher number will increase accuracy, but become computationally expensive 
+
+
+# nodesize <- c(1,2)
+# rf_prms <- expand.grid(ntrees = ntrees,
+#                        nodesize = nodesize)
+# tuneGrid <- expand.grid(.mtry = 6) #tuned parameter value = 5
+
+rf_pred <- list()
+
+
+for(i in 1:nrow(test_set)){
+  
+  rf_model <- train(GDP~.,
+                    data = train_set,
+                    method = "rf",
+                    metric = "RMSE",
+                    ntree = ntrees)
+  
+  
+  
+  test_pred_rf <- predict(rf_model, newdata = test_set[i, ])
+  # Update train sub sample with one row from test sub sample
+  train_set[nrow(train_set) + 1, ] <- test_set[i, ]
+  
+  rf_pred <-
+    append(rf_pred, test_pred_rf)
+  
+  
+}
+
 #### Calculate MSFEs for each model ####
 
 # Create new dataframe called msfe_df and import dataset
@@ -154,7 +186,7 @@ msfe_df <- load_data(dataset_end_date = "2019-12-01")
 
 # Appends the predictions column from nowcasting_dataset to msfe_df
 msfe_df <- subset(msfe_df,
-  select = c("Date", "GDP_QNA_RG"),
+  select = c("Date", "GDP"),
   subset = nowcasting_dataset$Date >= "2016-01-01"
 )
 
@@ -165,14 +197,17 @@ msfe_df <- na.locf(msfe_df, fromLast = TRUE)
 msfe_df$en_pred <- en_pred
 msfe_df$l_pred <- l_pred
 msfe_df$r_pred <- r_pred
+msfe_df$rf_pred <- rf_pred
 
 # Uses the new complete panel to calculated MSFE for VAR model
 en_msfe <-
-  sum((as.numeric(msfe_df$en_pred) - msfe_df$GDP_QNA_RG)^2) / nrow(msfe_df)
+  sum((as.numeric(msfe_df$en_pred) - msfe_df$GDP)^2) / nrow(msfe_df)
 r_msfe <-
-  sum((as.numeric(msfe_df$r_pred) - msfe_df$GDP_QNA_RG)^2) / nrow(msfe_df)
+  sum((as.numeric(msfe_df$r_pred) - msfe_df$GDP)^2) / nrow(msfe_df)
 l_msfe <-
-  sum((as.numeric(msfe_df$l_pred) - msfe_df$GDP_QNA_RG)^2) / nrow(msfe_df)
+  sum((as.numeric(msfe_df$l_pred) - msfe_df$GDP)^2) / nrow(msfe_df)
+rf_msfe <-
+  sum((as.numeric(msfe_df$rf_pred) - msfe_df$GDP)^2) / nrow(msfe_df)
 
 #### Plot predictions and observations ####
 
@@ -335,12 +370,63 @@ lasso_plot <- ggplot() +
     label = paste0("MSFE: ", round(l_msfe, digits = 5))
   )
 
+### Random Forest graph ###
+
+rf_predictions_df <-
+  data.frame(rf_pred, dates_for_plot)
+
+# Plot
+rf_plot <- ggplot() +
+  
+  # Draw predictions line
+  geom_line(
+    data = rf_predictions_df,
+    aes(
+      x = as.Date(dates_for_plot),
+      y = as.numeric(l_pred),
+      color = "Predictions"
+    ),
+    size = 1
+  ) +
+  
+  # Draw observations line
+  geom_line(
+    data = rf_predictions_df,
+    aes(
+      x = as.Date(dates_for_plot),
+      y = as.numeric(test_set$GDP),
+      color = "Observations"
+    ),
+    size = 1
+  ) +
+  
+  # Change x and y titles
+  labs(x = "Forecast Date", y = "GDP Growth", color = "Legend") +
+  
+  # Set x breaks and the desired format for the date labels
+  scale_x_date(date_breaks = "3 months", date_labels = "%m-%Y") +
+  
+  # Apply colours
+  scale_color_manual(values = colors) +
+  
+  # Rotate x axis labels by 45 degrees
+  theme(axis.text.x = element_text(angle = 45)) +
+  
+  # Add MSFE to the graph
+  annotate(
+    geom = "text",
+    x = as.Date("2016-12-01"),
+    y = -0.2,
+    label = paste0("MSFE: ", round(rf_msfe, digits = 5))
+  )
+
 # Put all graphs together into a single figure
 figure <- ggarrange(
   elastic_net_plot,
   ridge_plot,
   lasso_plot,
-  labels = c("Elastic Net", "Ridge", "Lasso"),
+  rf_plot,
+  labels = c("Elastic Net", "Ridge", "Lasso", "Random Forest"),
   ncol = 2,
   nrow = 2
 )
