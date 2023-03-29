@@ -48,7 +48,7 @@ make_plot <- function(dates, predictions, observations, msfe, label, scale_y) {
     annotate(
       geom = "text",
       x = as.Date(min(dates) + 180),
-      y = -30,
+      y = scale_y[1] + 5,
       label = glue("MSFE: {round(msfe, digits = 4)}")
     ) +
     

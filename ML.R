@@ -110,6 +110,7 @@ for (year in c(2010, 2019, 2022)) {
       lambda = 2^runif(15, min = -10, 3)),
     metric = "RMSE"
   )
+  ntrees = 10
 
   message("Hyperparameters successfully obtained")
 
@@ -153,6 +154,14 @@ for (year in c(2010, 2019, 2022)) {
       ),
       metric = "RMSE"
     )
+    
+    rf_temp <- train(
+      GDP ~ .,
+      data = train_set[, -c(1)],
+      method = "rf",
+      metric = "RMSE",
+      ntree = ntrees
+    )
 
     en_prediction <- predict(
       object = elastic_net_temp,
@@ -168,10 +177,16 @@ for (year in c(2010, 2019, 2022)) {
       object = lasso_temp,
       newdata = test_set[i, ]
     )
-    data$Date == max(train_set$Date)
+    
+    rf_prediction <- predict(
+      object = rf_temp,
+      newdata = test_set[i, ]
+    )
+    
     data[data$Date == max(train_set$Date), "EN Predictions"] <- en_prediction
     data[data$Date == max(train_set$Date), "R Predictions"] <- r_prediction
     data[data$Date == max(train_set$Date), "L Predictions"] <- l_prediction
+    data[data$Date == max(train_set$Date), "RF Predictions"] <- rf_prediction
 
     train_set[nrow(train_set) + 1, ] <- test_set[i, ]
     message(glue("{year}. No. of OOS observations left: {nrow(test_set) - i}"))
@@ -183,7 +198,8 @@ for (year in c(2010, 2019, 2022)) {
   msfe_df <- msfe_df[(lag+1): nrow(msfe_df), ]
   msfe_df$`EN Predictions` <- data$`EN Predictions`
   msfe_df$`R Predictions` <- data$`R Predictions`
-  msfe_df$`L Predictions` <- data$`EN Predictions`
+  msfe_df$`L Predictions` <- data$`L Predictions`
+  msfe_df$`RF Predictions` <- data$`RF Predictions`
 
   # Appends the predictions column from data to msfe_df
   msfe_df <- subset(msfe_df,
@@ -192,7 +208,8 @@ for (year in c(2010, 2019, 2022)) {
       "GDP",
       "EN Predictions",
       "R Predictions",
-      "L Predictions"
+      "L Predictions",
+      "RF Predictions"
     ),
     subset = data$Date >= test_start_date
   )
@@ -213,10 +230,15 @@ for (year in c(2010, 2019, 2022)) {
     predictions = msfe_df$`L Predictions`,
     oos = msfe_df$GDP
   )
+  rf_msfe <- calculate_msfe(
+    predictions = msfe_df$`RF Predictions`,
+    oos = msfe_df$GDP
+  )
 
   message(glue("Elastic Net MSFE ({year}): {en_msfe}"))
   message(glue("Ridge MSFE ({year}): {r_msfe}"))
   message(glue("Lasso MSFE ({year}): {l_msfe}"))
+  message(glue("Random Forest MSFE ({year}): {rf_msfe}"))
 
   #### Plot predictions and observations ####
 
@@ -226,7 +248,10 @@ for (year in c(2010, 2019, 2022)) {
       as.Date(max(plot_df$Date)),
       by = "quarter"
     )
-
+  
+  scale_y <- c(-25, 20)
+  height <- 2.25
+  
   en_plot <- make_plot(
     dates = dates_for_plot,
     predictions = plot_df$`EN Predictions`,
@@ -235,36 +260,49 @@ for (year in c(2010, 2019, 2022)) {
     label = glue(
       "Elastic Net ($\\alpha = {round(elastic_net$bestTune$alpha, digits=3)}, \\lambda = {round(elastic_net$bestTune$lambda, digit=3)}$). {year} with {length(structural_breakpoints)} Structural Break(s)"
     ),
-    scale_y = c(-40, 20)
+    scale_y = scale_y
   )
 
-  export_latex("plot", "en", year, en_plot, height = 3, TEX = TEX)
+  export_latex("plot", "en", year, en_plot, height = height, TEX = TEX)
 
   r_plot <- make_plot(
     dates = dates_for_plot,
     predictions = plot_df$`R Predictions`,
     observations = plot_df$GDP,
-    msfe = en_msfe,
+    msfe = r_msfe,
     label = glue(
       "Ridge ($\\alpha = {round(ridge$bestTune$alpha, digit=3)}, \\lambda = {round(ridge$bestTune$lambda, digit=3)}$). {year} with {length(structural_breakpoints)} Structural Break(s);"
     ),
-    scale_y = c(-40, 20)
+    scale_y = scale_y
   )
 
-  export_latex("plot", "r", year, r_plot, height = 3, TEX = TEX)
+  export_latex("plot", "r", year, r_plot, height = height, TEX = TEX)
 
   l_plot <- make_plot(
     dates = dates_for_plot,
     predictions = plot_df$`L Predictions`,
     observations = plot_df$GDP,
-    msfe = en_msfe,
+    msfe = l_msfe,
     label = glue(
-      "L ($\\alpha = {round(lasso$bestTune$alpha, digit=3)}, \\lambda = {round(lasso$bestTune$lambda, digit=3)}$). {year} with {length(structural_breakpoints)} Structural Break(s)"
+      "Lasso ($\\alpha = {round(lasso$bestTune$alpha, digit=3)}, \\lambda = {round(lasso$bestTune$lambda, digit=3)}$). {year} with {length(structural_breakpoints)} Structural Break(s)"
     ),
-    scale_y = c(-40, 20)
+    scale_y = scale_y
   )
 
-  export_latex("plot", "l", year, l_plot, height = 3, TEX = TEX)
+  export_latex("plot", "l", year, l_plot, height = height, TEX = TEX)
+  
+  rf_plot <- make_plot(
+    dates = dates_for_plot,
+    predictions = plot_df$`RF Predictions`,
+    observations = plot_df$GDP,
+    msfe = rf_msfe,
+    label = glue(
+      "Random Forest ({ntrees} trees). {year} with {length(structural_breakpoints)} Structural Break(s)"
+    ),
+    scale_y = scale_y
+  )
+
+  export_latex("plot", "rf", year, rf_plot, height = height, TEX = TEX)
 
   predictions <- merge(predictions, msfe_df[, -c(2)], by = "Date", all = TRUE)
 }
@@ -283,6 +321,9 @@ if (show_variables_summary == TRUE) {
   plot(var_importance)
   
   var_importance <- varImp(elastic_net)
+  plot(var_importance)
+  
+  var_importance <- varImp(rf_temp)
   plot(var_importance)
   
   # List Tuning parameters
