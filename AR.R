@@ -62,7 +62,7 @@ for (year in c(2010, 2019, 2022)) {
       temp_model_sb <- lm(GDP ~ L1GDP + L2GDP + Break_1, data = train)
     }
     prediction <- temp_model_sb$fitted.values[nrow(train) - 3]
-    data[data$Date >= max(train$Date), "Predictions"] <- prediction
+    data[data$Date == max(train$Date), "Predictions"] <- prediction
     train[nrow(train) + 1, ] <- test[i, ]
   }
   # # Create new dataframe called msfe_df and import dataset

@@ -14,19 +14,19 @@ get_intervals <- function() {
     dataset_end_date = "2010-12-01",
     train_end_date = "2005-12-01",
     test_start_date = "2006-01-01",
-    initialWindow = 200
+    initial_window = 200
   )
   params_2019 = c(
     dataset_end_date = "2019-12-01",
     train_end_date = "2015-12-01",
     test_start_date = "2016-01-01",
-    initialWindow = 310
+    initial_window = 310
   )
   params_2022 = c(
     dataset_end_date = FALSE,
     train_end_date = "2015-12-01",
     test_start_date = "2016-01-01",
-    initialWindow = 310
+    initial_window = 310
   )
   INTERVALS[[2010]] <- params_2010
   INTERVALS[[2019]] <- params_2019
@@ -69,6 +69,6 @@ export_latex <- function(type, name, year = "", object, width = 7, height = 6, T
 calculate_msfe <- function(predictions,  oos) {
   squared_diff <- (as.numeric(predictions) - oos)^2
   sum_squared_diff <- sum(squared_diff)
-  msfe <- mean(sum_squared_diff)
+  msfe <- sum_squared_diff / length(oos)
   return(msfe)
 }

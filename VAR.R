@@ -29,7 +29,9 @@ for (year in c(2010, 2019, 2022)) {
 
   columns <- c(2, 4, 11, 19, 36)
   for (i in seq_along(structural_breakpoints)) {
-    data[, paste0("Break_", i)] <- ifelse(seq_len(nrow(data)) < structural_breakpoints[i], 0, 1)
+    data[, paste0("Break_", i)] <- ifelse(
+      seq_len(nrow(data)) < structural_breakpoints[i], 0, 1
+    )
     columns <- append(columns, 50 + i)
   }
   ###### Process data ######
@@ -93,14 +95,18 @@ for (year in c(2010, 2019, 2022)) {
     predictions = msfe_df$Predictions,
     oos = msfe_df$GDP
   )
-  print(msfe)
+  message(glue("VAR MSFE ({year}): {msfe}"))
 
   # ##### Plot predictions and observations #####
 
   msfe_df$Date <- as.Date(msfe_df$Date)
   # Initiate an array of quarterly dates from 2011 to 2018
   dates_for_plot <-
-    seq(as.Date(min(msfe_df$Date)), as.Date(max(msfe_df$Date)), by = "month")
+    seq(
+      as.Date(min(msfe_df$Date)),
+      as.Date(max(msfe_df$Date)),
+      by = "month"
+    )
 
   # Plot
   var_plot <- make_plot(

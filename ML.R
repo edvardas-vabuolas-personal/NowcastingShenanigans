@@ -5,34 +5,61 @@ source("helper_functions.R")
 source("data_visualisation.R")
 
 ###### Load Data ########
-
+TEX <- TRUE
 
 INTERVALS <- get_intervals()
-predictions <- data.frame(seq(as.Date("2006-01-01"), as.Date("2022-09-01"), by = "month"))
+predictions <- data.frame(
+  seq(as.Date("2006-01-01"), as.Date("2022-09-01"),
+    by = "month"
+  )
+)
 names(predictions)[1] <- "Date"
 
 for (year in c(2010, 2019, 2022)) {
-  dataset_end_date <- as.character(INTERVALS[paste0(year, ".dataset_end_date")])
-  train_end_date <- as.character(INTERVALS[paste0(year, ".train_end_date")])
-  test_start_date <- as.character(INTERVALS[paste0(year, ".test_start_date")])
-  initialWindow <- as.numeric(INTERVALS[paste0(year, ".initialWindow")])
+  dataset_end_date <- as.character(INTERVALS[[year]]["dataset_end_date"])
+  train_end_date <- as.character(INTERVALS[[year]]["train_end_date"])
+  test_start_date <- as.character(INTERVALS[[year]]["test_start_date"])
+  initial_window <- as.character(INTERVALS[[year]]["initial_window"])
+  structural_breakpoints <- as.list(INTERVALS[[(paste0(year, ".break_points"))]])
 
-  nowcasting_dataset <- load_data(
-    dataset_end_date = if (dataset_end_date != FALSE) dataset_end_date else FALSE,
+  data <- load_data(
+    dataset_end_date = dataset_end_date,
     interpolate = TRUE
   )
-  message("Data Loaded")
+
+  for (i in seq_along(structural_breakpoints)) {
+    data[, paste0("Break_", i)] <- ifelse(
+      seq_len(nrow(data)) < structural_breakpoints[i], 0, 1
+    )
+  }
+  
+  lags <- 2
+  data_to_lag <- data
+  for (lag in 1:lags) {
+    lagged_data <- data_to_lag
+    lagged_data[, -c(1)] <- lag(data_to_lag[, -c(1)], n=lag)
+    col_index = 1
+    for (col_name in colnames(lagged_data)) {
+      if (col_name != 'Date') {
+        names(lagged_data)[col_index] <- glue("L{lag}{col_name}")
+      }
+      col_index = col_index + 1
+    }
+    data = merge(data, lagged_data, by = "Date", all = FALSE)
+  }
+  data <- na.omit(data)
+
   train_set <-
     subset(
-      nowcasting_dataset[, -c(1)],
-      subset = nowcasting_dataset$Date <= train_end_date
+      data,
+      subset = data$Date <= train_end_date
     )
   test_set <-
     subset(
-      nowcasting_dataset[, -c(1)],
-      subset = nowcasting_dataset$Date >= test_start_date
+      data,
+      subset = data$Date >= test_start_date
     )
-  message("Train and Test date loaded")
+
   #### Creating sampling seeds for reproducibility ####
   set.seed(123)
   seeds <- get_seeds()
@@ -40,10 +67,9 @@ for (year in c(2010, 2019, 2022)) {
   # Enable multi-threading with three cores
   registerDoParallel(cores = 3)
 
-  # Train controller. 250 train sample, growing window, 1 step ahead forecast
-  myTimeControl <- trainControl(
+  my_time_control <- trainControl(
     method = "timeslice",
-    initialWindow = initialWindow,
+    initialWindow = initial_window,
     horizon = 1,
     fixedWindow = FALSE,
     allowParallel = TRUE,
@@ -52,357 +78,215 @@ for (year in c(2010, 2019, 2022)) {
     seeds = seeds
   )
 
-  ##### Elastic Net #####
-
-  # Intial run to obtain hyperparameters
+  # Intial runs to obtain hyperparameters
   elastic_net <- train(
-    GDP_QNA_RG ~ .,
-    data = nowcasting_dataset[, -c(1)],
+    GDP ~ .,
+    data = data[, -c(1)],
     method = "glmnet",
     family = "gaussian",
-    trControl = myTimeControl,
+    trControl = my_time_control,
     tuneLength = 15,
     metric = "RMSE"
   )
+  ridge <- train(
+    GDP ~ .,
+    data = data[, -c(1)],
+    method = "glmnet",
+    family = "gaussian",
+    trControl = my_time_control,
+    tuneGrid = expand.grid(
+      alpha = 0,
+      lambda = 2^runif(15, min = -10, 3)),
+    metric = "RMSE"
+  )
+  lasso <- train(
+    GDP ~ .,
+    data = data[, -c(1)],
+    method = "glmnet",
+    family = "gaussian",
+    trControl = my_time_control,
+    tuneGrid = expand.grid(
+      alpha = 1,
+      lambda = 2^runif(15, min = -10, 3)),
+    metric = "RMSE"
+  )
 
-  en_pred <- list()
+  message("Hyperparameters successfully obtained")
 
   # For each row in the test sub sample (expanding window)
   for (i in 1:nrow(test_set)) {
     elastic_net_temp <- train(
-      GDP_QNA_RG ~ .,
-      data = train_set,
+      GDP ~ .,
+      data = train_set[, -c(1)],
       method = "glmnet",
       family = "gaussian",
       tuneLength = 1,
-      tuneGrid = expand.grid(alpha = elastic_net$bestTune$alpha, lambda = elastic_net$bestTune$lambda),
+      tuneGrid = expand.grid(
+        alpha = elastic_net$bestTune$alpha,
+        lambda = elastic_net$bestTune$lambda
+      ),
       metric = "RMSE"
     )
-    test_pred_en <- predict(elastic_net_temp, newdata = test_set[i, ])
-    # Update train sub sample with one row from test sub sample
-    train_set[nrow(train_set) + 1, ] <- test_set[i, ]
 
-    # Store prediction in the predictions list
-    en_pred <-
-      append(en_pred, test_pred_en)
-  }
-  message("EN done")
-  #### Ridge #####
-  # https://daviddalpiaz.github.io/r4sl/elastic-net.html
-
-  # Initial run to obtain hyperparameters
-  ridge <- train(
-    GDP_QNA_RG ~ .,
-    data = nowcasting_dataset[, -c(1)],
-    method = "glmnet",
-    family = "gaussian",
-    trControl = myTimeControl,
-    tuneGrid = expand.grid(alpha = 0, lambda = seq(0, 1, 0.005)),
-    metric = "RMSE"
-  )
-
-  r_pred <- list()
-
-  # For each row in the test sub sample (expanding window)
-  for (i in 1:nrow(test_set)) {
     ridge_temp <- train(
-      GDP_QNA_RG ~ .,
-      data = train_set,
+      GDP ~ .,
+      data = train_set[, -c(1)],
       method = "glmnet",
       family = "gaussian",
       tuneLength = 1,
-      tuneGrid = expand.grid(alpha = ridge$bestTune$alpha, lambda = ridge$bestTune$lambda),
+      tuneGrid = expand.grid(
+        alpha = ridge$bestTune$alpha,
+        lambda = ridge$bestTune$lambda
+      ),
       metric = "RMSE"
     )
-    test_pred_r <- predict(ridge_temp, newdata = test_set[i, ])
-    # Update train sub sample with one row from test sub sample
-    train_set[nrow(train_set) + 1, ] <- test_set[i, ]
 
-    # Store prediction in the predictions list
-    r_pred <-
-      append(r_pred, test_pred_r)
-  }
-  message("R done")
-  #### Lasso ####
-  lasso <- train(
-    GDP_QNA_RG ~ .,
-    data = nowcasting_dataset[, -c(1)],
-    method = "glmnet",
-    family = "gaussian",
-    trControl = myTimeControl,
-    tuneGrid = expand.grid(alpha = 1, lambda = seq(0, 1, 0.005)),
-    metric = "RMSE"
-  )
-
-  l_pred <- list()
-
-  # For each row in the test sub sample (expanding window)
-  for (i in 1:nrow(test_set)) {
     lasso_temp <- train(
-      GDP_QNA_RG ~ .,
-      data = train_set,
+      GDP ~ .,
+      data = train_set[, -c(1)],
       method = "glmnet",
       family = "gaussian",
       tuneLength = 1,
-      tuneGrid = expand.grid(alpha = lasso$bestTune$alpha, lambda = lasso$bestTune$lambda),
+      tuneGrid = expand.grid(
+        alpha = lasso$bestTune$alpha,
+        lambda = lasso$bestTune$lambda
+      ),
       metric = "RMSE"
     )
-    test_pred_l <- predict(lasso_temp, newdata = test_set[i, ])
-    # Update train sub sample with one row from test sub sample
+
+    en_prediction <- predict(
+      object = elastic_net_temp,
+      newdata = test_set[i, ]
+    )
+
+    r_prediction <- predict(
+      object = ridge_temp,
+      newdata = test_set[i, ]
+    )
+
+    l_prediction <- predict(
+      object = lasso_temp,
+      newdata = test_set[i, ]
+    )
+    data$Date == max(train_set$Date)
+    data[data$Date == max(train_set$Date), "EN Predictions"] <- en_prediction
+    data[data$Date == max(train_set$Date), "R Predictions"] <- r_prediction
+    data[data$Date == max(train_set$Date), "L Predictions"] <- l_prediction
+
     train_set[nrow(train_set) + 1, ] <- test_set[i, ]
-
-    # Store prediction in the predictions list
-    l_pred <-
-      append(l_pred, test_pred_l)
+    message(glue("{year}. No. of OOS observations left: {nrow(test_set) - i}"))
   }
-  message("L done")
-  #### Random Forest ####
-
-
   #### Calculate MSFEs for each model ####
 
   # Create new dataframe called msfe_df and import dataset
   msfe_df <- load_data(dataset_end_date = dataset_end_date)
+  msfe_df <- msfe_df[(lag+1): nrow(msfe_df), ]
+  msfe_df$`EN Predictions` <- data$`EN Predictions`
+  msfe_df$`R Predictions` <- data$`R Predictions`
+  msfe_df$`L Predictions` <- data$`EN Predictions`
 
-  # Appends the predictions column from nowcasting_dataset to msfe_df
+  # Appends the predictions column from data to msfe_df
   msfe_df <- subset(msfe_df,
-    select = c("Date", "GDP_QNA_RG"),
-    subset = nowcasting_dataset$Date >= test_start_date
+    select = c(
+      "Date",
+      "GDP",
+      "EN Predictions",
+      "R Predictions",
+      "L Predictions"
+    ),
+    subset = data$Date >= test_start_date
   )
-
-  # Replaces NA values in GDP column with the next non-missing value
+  plot_df <- na.omit(msfe_df)
+  # Replaces NA values with "NOCB" (Next Observation Carried Backwards)
   msfe_df <- na.locf(msfe_df, fromLast = TRUE)
 
-  # Appends the predictions columns from each ML model to msfe_df
-  msfe_df$en_pred <- en_pred
-  msfe_df$l_pred <- l_pred
-  msfe_df$r_pred <- r_pred
+  # Use NOCB-interpolated values for MSFE calculations
+  en_msfe <- calculate_msfe(
+    predictions = msfe_df$`EN Predictions`,
+    oos = msfe_df$GDP
+  )
+  r_msfe <- calculate_msfe(
+    predictions = msfe_df$`R Predictions`,
+    oos = msfe_df$GDP
+  )
+  l_msfe <- calculate_msfe(
+    predictions = msfe_df$`L Predictions`,
+    oos = msfe_df$GDP
+  )
 
-  # Uses the new complete panel to calculated MSFE for VAR model
-  en_msfe <-
-    sum((as.numeric(msfe_df$en_pred) - msfe_df$GDP_QNA_RG)^2) / nrow(msfe_df)
-  r_msfe <-
-    sum((as.numeric(msfe_df$r_pred) - msfe_df$GDP_QNA_RG)^2) / nrow(msfe_df)
-  l_msfe <-
-    sum((as.numeric(msfe_df$l_pred) - msfe_df$GDP_QNA_RG)^2) / nrow(msfe_df)
-  INTERVALS[paste0(year, ".EN_MSFE")] <- en_msfe
-  INTERVALS[paste0(year, ".R_MSFE")] <- r_msfe
-  INTERVALS[paste0(year, ".L_MSFE")] <- l_msfe
+  message(glue("Elastic Net MSFE ({year}): {en_msfe}"))
+  message(glue("Ridge MSFE ({year}): {r_msfe}"))
+  message(glue("Lasso MSFE ({year}): {l_msfe}"))
 
   #### Plot predictions and observations ####
 
-  # Initiate an array of monthly dates from 2011 to 2018
   dates_for_plot <-
-    seq(as.Date(test_start_date), as.Date(if (dataset_end_date != FALSE) dataset_end_date else "2022-09-01"), by = "month")
+    seq(
+      as.Date(min(plot_df$Date)),
+      as.Date(max(plot_df$Date)),
+      by = "quarter"
+    )
 
-  # Color selection
-  colors <- c(
-    "Predictions" = "steelblue",
-    "Observations" = "grey"
+  en_plot <- make_plot(
+    dates = dates_for_plot,
+    predictions = plot_df$`EN Predictions`,
+    observations = plot_df$GDP,
+    msfe = en_msfe,
+    label = glue(
+      "Elastic Net ($\\alpha = {round(elastic_net$bestTune$alpha, digits=3)}, \\lambda = {round(elastic_net$bestTune$lambda, digit=3)}$). {year} with {length(structural_breakpoints)} Structural Break(s)"
+    ),
+    scale_y = c(-40, 20)
   )
 
-  # ### Elastic net graph ###
-  # # Put predictions and an array of dates into a dataframe
+  export_latex("plot", "en", year, en_plot, height = 3, TEX = TEX)
 
-  temp_preds <- data.frame(dates_for_plot, as.data.frame(as.numeric(en_pred)), as.data.frame(as.numeric(r_pred)), as.data.frame(as.numeric(l_pred)))
-  names(temp_preds)[1] <- "Date"
-  names(temp_preds)[2] <- paste0("en_pred_", year)
-  names(temp_preds)[3] <- paste0("r_pred_", year)
-  names(temp_preds)[4] <- paste0("l_pred_", year)
-  predictions <- merge(predictions, temp_preds, by = "Date", all = TRUE)
-
-  # Set graphs legend to the top
-  theme_set(theme_bw() +
-    theme(legend.position = "right"))
-
-  ### Elastic net graph ###
-  # Put predictions and an array of dates into a dataframe
-  elastic_net_predictions_df <-
-    data.frame(en_pred, dates_for_plot)
-  
-  # Plot
-  elastic_net_plot <- ggplot() +
-    # Draw predictions line
-    geom_line(
-      data = elastic_net_predictions_df,
-      aes(
-        x = as.Date(dates_for_plot),
-        y = as.numeric(en_pred),
-        color = "Predictions"
-      ),
-      size = 1
-    ) +
-
-    # Draw observations line
-    geom_line(
-      data = elastic_net_predictions_df,
-      aes(
-        x = as.Date(dates_for_plot),
-        y = as.numeric(test_set$GDP_QNA_RG),
-        color = "Observations"
-      ),
-      size = 1
-    ) +
-
-    # Change x and y titles
-    labs(x = "Forecast Date", y = "GDP Growth", color = "Legend") +
-
-    # Set x breaks and the desired format for the date labels
-    scale_x_date(date_breaks = "3 months", date_labels = "%m-%Y") +
-
-    # Apply colours
-    scale_color_manual(values = colors) +
-
-    # Rotate x axis label by 45 degrees
-    theme(axis.text.x = element_text(angle = 45), axis.title.x=element_blank()) +
-
-    # Add MSFE to the graph
-    annotate(
-      geom = "text",
-      x = as.Date(test_start_date) + 180,
-      y = -30,
-      label = paste0("MSFE: ", round(en_msfe, digits = 5))
-    )
-  ### Ridge graph ###
-  ridge_predictions_df <-
-    data.frame(r_pred, dates_for_plot)
-
-  # Plot
-  ridge_plot <- ggplot() +
-
-    # Draw predictions line
-    geom_line(
-      data = ridge_predictions_df,
-      aes(
-        x = as.Date(dates_for_plot),
-        y = as.numeric(r_pred),
-        color = "Predictions"
-      ),
-      size = 1
-    ) +
-    # Draw observations line
-    geom_line(
-      data = ridge_predictions_df,
-      aes(
-        x = as.Date(dates_for_plot),
-        y = as.numeric(test_set$GDP_QNA_RG),
-        color = "Observations"
-      ),
-      size = 1
-    ) +
-
-    # Change x and y titles
-    labs(x = "Forecast Date", y = "GDP Growth", color = "Legend") +
-
-    # Set x breaks and the desired format for the date labels
-    scale_x_date(date_breaks = "3 months", date_labels = "%m-%Y") +
-
-    # Apply colours
-    scale_color_manual(values = colors) +
-
-    # Rotate x axis label by 45 degrees
-    theme(axis.text.x = element_text(angle = 45), axis.title.x=element_blank()) +
-
-    # Add MSGE to the graph
-    annotate(
-      geom = "text",
-      x = as.Date(test_start_date) + 180,
-      y = -30,
-      label = paste0("MSFE: ", round(r_msfe, digits = 5))
-    )
-
-  ### Lasso graph ###
-  lasso_predictions_df <-
-    data.frame(l_pred, dates_for_plot)
-
-  # Plot
-  lasso_plot <- ggplot() +
-
-    # Draw predictions line
-    geom_line(
-      data = lasso_predictions_df,
-      aes(
-        x = as.Date(dates_for_plot),
-        y = as.numeric(l_pred),
-        color = "Predictions"
-      ),
-      size = 1
-    ) +
-
-    # Draw observations line
-    geom_line(
-      data = lasso_predictions_df,
-      aes(
-        x = as.Date(dates_for_plot),
-        y = as.numeric(test_set$GDP_QNA_RG),
-        color = "Observations"
-      ),
-      size = 1
-    ) +
-
-    # Change x and y titles
-    labs(x = "Forecast Date", y = "GDP Growth", color = "Legend") +
-
-    # Set x breaks and the desired format for the date labels
-    scale_x_date(date_breaks = "3 months", date_labels = "%m-%Y") +
-
-    # Apply colours
-    scale_color_manual(values = colors) +
-
-    # Rotate x axis labels by 45 degrees
-    theme(axis.text.x = element_text(angle = 45), axis.title.x=element_blank()) +
-
-    # Add MSFE to the graph
-    annotate(
-      geom = "text",
-      x = as.Date(test_start_date) + 180,
-      y = -30,
-      label = paste0("MSFE: ", round(l_msfe, digits = 5))
-    )
-
-  # Put all graphs together into a single figure
-  figure <- ggarrange(
-    elastic_net_plot,
-    ridge_plot,
-    lasso_plot,
-    labels = c("Elastic Net", "Ridge", "Lasso"),
-    ncol = 1,
-    nrow = 3,
-    common.legend = TRUE
+  r_plot <- make_plot(
+    dates = dates_for_plot,
+    predictions = plot_df$`R Predictions`,
+    observations = plot_df$GDP,
+    msfe = en_msfe,
+    label = glue(
+      "Ridge ($\\alpha = {round(ridge$bestTune$alpha, digit=3)}, \\lambda = {round(ridge$bestTune$lambda, digit=3)}$). {year} with {length(structural_breakpoints)} Structural Break(s);"
+    ),
+    scale_y = c(-40, 20)
   )
-  tikz(paste0('./output/ml_plot_', year, '.tex'),width=7,height=9)
-  plot(figure)
-  dev.off()
-  ggsave(paste0("ML_plot_", year, ".png"), figure)
-  
-  
-  
-  
-  show_variables_summary <- FALSE
-  if (show_variables_summary == TRUE) {
-    # Obtain coefficients
-    coef(lasso$finalModel, lasso$bestTune$lambda)
-    coef(ridge$finalModel, ridge$bestTune$lambda)
 
-    # Plot importance of variables
-    var_importance <- varImp(ridge)
-    plot(var_importance)
+  export_latex("plot", "r", year, r_plot, height = 3, TEX = TEX)
 
-    var_importance <- varImp(lasso)
-    plot(var_importance)
+  l_plot <- make_plot(
+    dates = dates_for_plot,
+    predictions = plot_df$`L Predictions`,
+    observations = plot_df$GDP,
+    msfe = en_msfe,
+    label = glue(
+      "L ($\\alpha = {round(lasso$bestTune$alpha, digit=3)}, \\lambda = {round(lasso$bestTune$lambda, digit=3)}$). {year} with {length(structural_breakpoints)} Structural Break(s)"
+    ),
+    scale_y = c(-40, 20)
+  )
 
-    var_importance <- varImp(elastic_net)
-    plot(var_importance)
+  export_latex("plot", "l", year, l_plot, height = 3, TEX = TEX)
 
-    # List Tuning parameters
-    elastic_net$bestTune
-    lasso$bestTune
-    ridge$bestTune
-  }
+  predictions <- merge(predictions, msfe_df[, -c(2)], by = "Date", all = TRUE)
 }
-predictions$Date <- format(predictions$Date, "%d-%m-%Y")
-latex_predictions <- xtable(predictions, caption = "ML Predictions", label = "tab:ml_predictions")
-print(latex_predictions, include.rownames = FALSE, file='./output/ml_predictions.tex')
 
-# figure <- get_figure(predictions)
-# figure
+show_variables_summary <- FALSE
+if (show_variables_summary == TRUE) {
+  # Obtain coefficients
+  coef(lasso$finalModel, lasso$bestTune$lambda)
+  coef(ridge$finalModel, ridge$bestTune$lambda)
+  
+  # Plot importance of variables
+  var_importance <- varImp(ridge)
+  plot(var_importance)
+  
+  var_importance <- varImp(lasso)
+  plot(var_importance)
+  
+  var_importance <- varImp(elastic_net)
+  plot(var_importance)
+  
+  # List Tuning parameters
+  elastic_net$bestTune
+  lasso$bestTune
+  ridge$bestTune
+}
