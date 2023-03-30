@@ -67,8 +67,55 @@ export_latex <- function(type, name, year = "", object, width = 7, height = 6, T
 }
 
 calculate_msfe <- function(predictions,  oos) {
+  # MSFE = SUM( (Yhat - OOS)^2 ) / No. of OOS
   squared_diff <- (as.numeric(predictions) - oos)^2
   sum_squared_diff <- sum(squared_diff)
   msfe <- sum_squared_diff / length(oos)
   return(msfe)
+}
+
+lag_data <- function(data, lag) {
+  # The purpose of this is to lag explanatory variables
+  # i.e. Lag = 2 would be
+  # Dependent variable at t+1   Explanatory vars at t and t-1
+  # GDP                         L1GDP   L2GDP   ...
+  # 0.9                         NA      NA      ...
+  # 0.4                         0.9     NA      ...
+  # 0.2                         0.4     0.9     ...
+  # 0.5                         0.2     0.4     ...
+  # ...                         ...     ...     ...
+  
+  if (lag < 1) {
+    return(data)
+  }
+  
+  data_to_lag <- data
+  
+  # Keep date and t+1 GDP
+  data <- data[, c("Date", "GDP")]
+  
+  # Add t, t-1, ..., t-lag explanatory variables to 'data' variable
+  for (lag in 1:lags) {
+    lagged_data <- data_to_lag
+    
+    # -c(1) because we don't want to lag 'Date' column
+    lagged_data[, -c(1)] <- lag(data_to_lag[, -c(1)], n=lag)
+    
+    # The following is just for renaming columns
+    col_index = 1
+    for (col_name in colnames(lagged_data)) {
+      if (col_name != 'Date') {
+        names(lagged_data)[col_index] <- glue("L{lag}{col_name}")
+      }
+      col_index = col_index + 1
+    }
+    
+    # Add t, t-1, ..., t-lag explanatory variables to 'data' variable
+    data = merge(data, lagged_data, by = "Date", all = FALSE)
+  }
+  
+  # First and last rows now contain NA values (because we lagged variables)
+  data <- na.omit(data)
+  
+  return(data)
 }

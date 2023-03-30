@@ -7,6 +7,8 @@ source("data_visualisation.R")
 ###### Load Data ########
 TEX <- TRUE
 
+LSTM <- TRUE
+
 INTERVALS <- get_intervals()
 predictions <- data.frame(
   seq(as.Date("2006-01-01"), as.Date("2022-09-01"),
@@ -26,7 +28,6 @@ for (year in c(2010, 2019, 2022)) {
     dataset_end_date = dataset_end_date,
     interpolate = TRUE
   )
-
   for (i in seq_along(structural_breakpoints)) {
     data[, paste0("Break_", i)] <- ifelse(
       seq_len(nrow(data)) < structural_breakpoints[i], 0, 1
@@ -34,20 +35,7 @@ for (year in c(2010, 2019, 2022)) {
   }
   
   lags <- 2
-  data_to_lag <- data
-  for (lag in 1:lags) {
-    lagged_data <- data_to_lag
-    lagged_data[, -c(1)] <- lag(data_to_lag[, -c(1)], n=lag)
-    col_index = 1
-    for (col_name in colnames(lagged_data)) {
-      if (col_name != 'Date') {
-        names(lagged_data)[col_index] <- glue("L{lag}{col_name}")
-      }
-      col_index = col_index + 1
-    }
-    data = merge(data, lagged_data, by = "Date", all = FALSE)
-  }
-  data <- na.omit(data)
+  data <- lag_data(data, lags)
 
   train_set <-
     subset(
@@ -191,16 +179,23 @@ for (year in c(2010, 2019, 2022)) {
     train_set[nrow(train_set) + 1, ] <- test_set[i, ]
     message(glue("{year}. No. of OOS observations left: {nrow(test_set) - i}"))
   }
-  #### Calculate MSFEs for each model ####
+ 
+  if (LSTM == TRUE) {
+    lstm_df <- read_csv(glue("./output/LSTM_{year}.csv"), show_col_types = FALSE)
+    
+    data[data$Date >= train_end_date, "LSTM Predictions"] <- lstm_df$`LSTM Predictions`
+  }
+  
 
   # Create new dataframe called msfe_df and import dataset
   msfe_df <- load_data(dataset_end_date = dataset_end_date)
-  msfe_df <- msfe_df[(lag+1): nrow(msfe_df), ]
+  msfe_df <- msfe_df[(lags+1): nrow(msfe_df), ]
   msfe_df$`EN Predictions` <- data$`EN Predictions`
   msfe_df$`R Predictions` <- data$`R Predictions`
   msfe_df$`L Predictions` <- data$`L Predictions`
   msfe_df$`RF Predictions` <- data$`RF Predictions`
-
+  msfe_df$`LSTM Predictions` <- data$`LSTM Predictions`
+  
   # Appends the predictions column from data to msfe_df
   msfe_df <- subset(msfe_df,
     select = c(
@@ -209,10 +204,13 @@ for (year in c(2010, 2019, 2022)) {
       "EN Predictions",
       "R Predictions",
       "L Predictions",
-      "RF Predictions"
+      "RF Predictions",
+      "LSTM Predictions"
     ),
     subset = data$Date >= test_start_date
   )
+  
+  
   plot_df <- na.omit(msfe_df)
   # Replaces NA values with "NOCB" (Next Observation Carried Backwards)
   msfe_df <- na.locf(msfe_df, fromLast = TRUE)
@@ -234,11 +232,22 @@ for (year in c(2010, 2019, 2022)) {
     predictions = msfe_df$`RF Predictions`,
     oos = msfe_df$GDP
   )
+  
+  if (LSTM == TRUE) {
+    lstm_msfe <- calculate_msfe(
+      predictions = msfe_df$`LSTM Predictions`,
+      oos = msfe_df$GDP
+    )
+  }
 
   message(glue("Elastic Net MSFE ({year}): {en_msfe}"))
   message(glue("Ridge MSFE ({year}): {r_msfe}"))
   message(glue("Lasso MSFE ({year}): {l_msfe}"))
   message(glue("Random Forest MSFE ({year}): {rf_msfe}"))
+  
+  if (LSTM == TRUE) {
+    message(glue("LSTM MSFE ({year}): {lstm_msfe}"))
+  }
 
   #### Plot predictions and observations ####
 
@@ -249,8 +258,8 @@ for (year in c(2010, 2019, 2022)) {
       by = "quarter"
     )
   
-  scale_y <- c(-25, 20)
-  height <- 2.25
+  scale_y <- c(-30, 25)
+  height <- 1.8
   
   en_plot <- make_plot(
     dates = dates_for_plot,
@@ -303,6 +312,21 @@ for (year in c(2010, 2019, 2022)) {
   )
 
   export_latex("plot", "rf", year, rf_plot, height = height, TEX = TEX)
+  
+  if (LSTM == TRUE) {
+    lstm_plot <- make_plot(
+      dates = dates_for_plot,
+      predictions = plot_df$`LSTM Predictions`,
+      observations = plot_df$GDP,
+      msfe = lstm_msfe,
+      label = glue(
+        "LSTM. {year} with {length(structural_breakpoints)} Structural Break(s)"
+      ),
+      scale_y = scale_y
+    )
+    
+    export_latex("plot", "lstm", year, lstm_plot, height = height, TEX = TEX)
+  }
 
   predictions <- merge(predictions, msfe_df[, -c(2)], by = "Date", all = TRUE)
 }
