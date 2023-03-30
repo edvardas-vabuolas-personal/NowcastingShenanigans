@@ -259,7 +259,10 @@ for (year in c(2010, 2019, 2022)) {
     )
   
   scale_y <- c(-30, 25)
-  height <- 1.8
+  
+  # A4 page is 8.3x11.7, Overleaf margins are 1 inch. Adjust as needed.
+  height <- round(9.7/5, digits = 2)
+  width <- 6.3
   
   en_plot <- make_plot(
     dates = dates_for_plot,
@@ -272,7 +275,7 @@ for (year in c(2010, 2019, 2022)) {
     scale_y = scale_y
   )
 
-  export_latex("plot", "en", year, en_plot, height = height, TEX = TEX)
+  export_latex("plot", "en", year, en_plot, height = height, width = width, TEX = TEX)
 
   r_plot <- make_plot(
     dates = dates_for_plot,
@@ -285,7 +288,7 @@ for (year in c(2010, 2019, 2022)) {
     scale_y = scale_y
   )
 
-  export_latex("plot", "r", year, r_plot, height = height, TEX = TEX)
+  export_latex("plot", "r", year, r_plot, height = height, width = width, TEX = TEX)
 
   l_plot <- make_plot(
     dates = dates_for_plot,
@@ -298,7 +301,7 @@ for (year in c(2010, 2019, 2022)) {
     scale_y = scale_y
   )
 
-  export_latex("plot", "l", year, l_plot, height = height, TEX = TEX)
+  export_latex("plot", "l", year, l_plot, height = height, width = width, TEX = TEX)
   
   rf_plot <- make_plot(
     dates = dates_for_plot,
@@ -311,7 +314,7 @@ for (year in c(2010, 2019, 2022)) {
     scale_y = scale_y
   )
 
-  export_latex("plot", "rf", year, rf_plot, height = height, TEX = TEX)
+  export_latex("plot", "rf", year, rf_plot, height = height, width = width, TEX = TEX)
   
   if (LSTM == TRUE) {
     lstm_plot <- make_plot(
@@ -325,33 +328,24 @@ for (year in c(2010, 2019, 2022)) {
       scale_y = scale_y
     )
     
-    export_latex("plot", "lstm", year, lstm_plot, height = height, TEX = TEX)
+    export_latex("plot", "lstm", year, lstm_plot, height = height, width = width, TEX = TEX)
   }
 
   predictions <- merge(predictions, msfe_df[, -c(2)], by = "Date", all = TRUE)
 }
 
-show_variables_summary <- FALSE
-if (show_variables_summary == TRUE) {
-  # Obtain coefficients
-  coef(lasso$finalModel, lasso$bestTune$lambda)
-  coef(ridge$finalModel, ridge$bestTune$lambda)
-  
-  # Plot importance of variables
-  var_importance <- varImp(ridge)
-  plot(var_importance)
-  
-  var_importance <- varImp(lasso)
-  plot(var_importance)
-  
-  var_importance <- varImp(elastic_net)
-  plot(var_importance)
-  
-  var_importance <- varImp(rf_temp)
-  plot(var_importance)
-  
-  # List Tuning parameters
-  elastic_net$bestTune
-  lasso$bestTune
-  ridge$bestTune
-}
+# Plot importance of variables
+en_var <- varImp(elastic_net)$importance
+# en_var$Importance$Overall <- factor(en_var$Importance$Overall, levels = en_var$Importance$Overall)
+ggplot(head(en_var, 10),aes(rownames(head(en_var, 10)),as.numeric(head(en_var, 10)$Overall)))+geom_bar(stat="identity")
+r_var <- varImp(ridge)
+l_var<- varImp(lasso)
+rf_var <- varImp(rf_temp)
+
+# A4 page is 8.3 on 11.7, Overleaf margins are 1 inch each side. Adjust as needed
+height = 9.7
+
+export_latex("plot", "en_importance", "", en_var_importance$importance, height = height, width = width, TEX = TEX)
+export_latex("plot", "r_importance", "", r_var_importance$importance, height = height, width = width, TEX = TEX)
+export_latex("plot", "l_importance", "", l_var_importance$importance, height = height, width = width, TEX = TEX)
+export_latex("plot", "rf_importance", "", rf_var_importance$importance, height = height, width = width, TEX = TEX)
