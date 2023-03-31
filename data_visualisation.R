@@ -56,3 +56,27 @@ make_plot <- function(dates, predictions, observations, msfe, label, scale_y) {
     scale_y_continuous(limits = scale_y)
   return(figure)
 }
+
+plot_var_imp <- function(model, rows, label) {
+  var_imp_df <- varImp(model)$importance
+  var_imp_df <- var_imp_df[order(-var_imp_df$Overall), , drop=FALSE]
+  
+  # TikZDevice breaks if we use underscores. Replace £ with Find All in Overleaf
+  var_imp_df$Variables <- gsub('_','£', rownames(var_imp_df))
+
+  p <- head(var_imp_df, rows) %>%
+    arrange(Overall) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
+    mutate(Variables=factor(Variables, levels=Variables)) %>%   # This trick update the factor levels
+    ggplot( aes(x=Variables, y=Overall/100)) +
+    geom_bar(stat="identity") +
+    coord_flip() +
+    theme_bw() +
+    xlab("")+
+    ylab("
+    Absolute Coefficients. 
+    Scaled to be between 0 and 1.
+    ") +
+    ggtitle(label)
+  
+  return(p)
+}

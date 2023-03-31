@@ -335,17 +335,17 @@ for (year in c(2010, 2019, 2022)) {
 }
 
 # Plot importance of variables
-en_var <- varImp(elastic_net)$importance
-# en_var$Importance$Overall <- factor(en_var$Importance$Overall, levels = en_var$Importance$Overall)
-ggplot(head(en_var, 10),aes(rownames(head(en_var, 10)),as.numeric(head(en_var, 10)$Overall)))+geom_bar(stat="identity")
-r_var <- varImp(ridge)
-l_var<- varImp(lasso)
-rf_var <- varImp(rf_temp)
 
+en_var_plot <- plot_var_imp(elastic_net, 50, "Elastic Net: Selected variables")
+r_var_plot <- plot_var_imp(ridge, 50, "Ridge: Selected variables")
+l_var_plot <- plot_var_imp(lasso, 50, "Lasso: Selected variables")
+rf_var_plot <- plot_var_imp(rf_temp, 50, "Random Forest: Selected variables")
+  
 # A4 page is 8.3 on 11.7, Overleaf margins are 1 inch each side. Adjust as needed
 height = 9.7
+width = 6.3
 
-export_latex("plot", "en_importance", "", en_var_importance$importance, height = height, width = width, TEX = TEX)
-export_latex("plot", "r_importance", "", r_var_importance$importance, height = height, width = width, TEX = TEX)
-export_latex("plot", "l_importance", "", l_var_importance$importance, height = height, width = width, TEX = TEX)
-export_latex("plot", "rf_importance", "", rf_var_importance$importance, height = height, width = width, TEX = TEX)
+export_latex("plot", "en_importance", "", en_var_plot, height = height, width = width, TEX = TEX)
+export_latex("plot", "r_importance", "", r_var_plot, height = height, width = width, TEX = TEX)
+export_latex("plot", "l_importance", "", l_var_plot, height = height, width = width, TEX = TEX)
+export_latex("plot", "rf_importance", "", rf_var_plot, height = height, width = width, TEX = TEX)

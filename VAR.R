@@ -5,7 +5,7 @@ source("helper_functions.R")
 source("data_visualisation.R")
 
 # Set TRUE to enable Latex export (very slow)
-TEX <- TRUE
+TEX <- FALSE
 
 INTERVALS <- get_intervals()
 predictions <- data.frame(
@@ -27,7 +27,7 @@ for (year in c(2010, 2019, 2022)) {
     interpolate = TRUE
   )
 
-  columns <- c(2, 4, 11, 19, 36)
+  columns <- c(1, 2, 4, 11, 19, 36)
   for (i in seq_along(structural_breakpoints)) {
     data[, paste0("Break_", i)] <- ifelse(
       seq_len(nrow(data)) < structural_breakpoints[i], 0, 1
@@ -47,18 +47,20 @@ for (year in c(2010, 2019, 2022)) {
       subset = data$Date >= test_start_date
     )
 
+  train[, "Intercept"] <- 1
+  test[, "Intercept"] <- 1
   # The output of VARselect tells us what lag length we should use
   # var_select <- VARselect(train, lag.max = 10, type = "const")
 
   lag <- 2
-  # For each row in the test sub sample
+  exog <- train[, -c(1, 2, 3, 4, 5, 6)]
   for (i in 1:nrow(test)) {
     # Obtain coefficients for VAR(1) lag length
     temp_model <- VAR(
-      y = train[, c(1, 2, 3, 4, 5)],
+      y = train[, c(2, 3, 4, 5, 6)],
       p = lag,
-      type = "const",
-      exogen = as.matrix(train[, -c(1, 2, 3, 4, 5)])
+      type = "none",
+      exogen = as.matrix(exog[,])
     )
 
     # Forecast one step ahead; feed one observation from test sub sample
@@ -67,12 +69,14 @@ for (year in c(2010, 2019, 2022)) {
         object = temp_model,
         ci = 0.95,
         n.ahead = 1,
-        dumvar = as.matrix(train[i, -c(1, 2, 3, 4, 5)])
+        dumvar = as.matrix(exog[i, ])
       )
     prediction <- forecast_object$fcst$GDP[, 1]
+    print(prediction)
     # Append train sub sample with one observation from the test sub sample
-    data[nrow(train) + 1, "Predictions"] <- prediction
+    data[data$Date == max(train$Date), "Predictions"] <- prediction
     train[nrow(train) + 1, ] <- as.list(test[i, ])
+    exog[nrow(exog) + 1, ] <- as.list(test[i, -c(1, 2, 3, 4, 5, 6)])
   }
 
   # # Create new dataframe called msfe_df and import dataset
@@ -86,7 +90,9 @@ for (year in c(2010, 2019, 2022)) {
     select = c("Date", "GDP", "Predictions"),
     subset = data$Date >= test_start_date
   )
-
+  plot_df <- na.omit(msfe_df)
+  
+  
   # Replaces NA values in GDP column with the next non-missing value
   msfe_df <- na.locf(msfe_df, fromLast = TRUE)
 
@@ -99,23 +105,23 @@ for (year in c(2010, 2019, 2022)) {
 
   # ##### Plot predictions and observations #####
 
-  msfe_df$Date <- as.Date(msfe_df$Date)
+  plot_df$Date <- as.Date(plot_df$Date)
   # Initiate an array of quarterly dates from 2011 to 2018
   dates_for_plot <-
     seq(
-      as.Date(min(msfe_df$Date)),
-      as.Date(max(msfe_df$Date)),
-      by = "month"
+      as.Date(min(plot_df$Date)),
+      as.Date(max(plot_df$Date)),
+      by = "quarter"
     )
-
+  scale_y <- c(-40, 25)
   # Plot
   var_plot <- make_plot(
     dates = dates_for_plot,
-    predictions = msfe_df$Predictions,
-    observations = msfe_df$GDP,
+    predictions = plot_df$Predictions,
+    observations = plot_df$GDP,
     msfe = msfe,
-    label = glue("VAR({lag}) {year}; {length(structural_breakpoints)} Structural Break(s); NOCB Interpolation"),
-    scale_y = c(-40, 20)
+    label = glue("VAR({lag}) {year}; {length(structural_breakpoints)} Structural Break(s)"),
+    scale_y = scale_y
   )
   # ar_plot
   export_latex("plot", "var", year, var_plot, height = 3, TEX = TEX)
