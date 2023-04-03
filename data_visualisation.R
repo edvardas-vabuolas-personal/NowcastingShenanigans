@@ -108,54 +108,53 @@ box_plots <- function(data) {
   long_data <- melt(data[, cols_0_1_25])
   long_data$variable <- gsub("_", "£", long_data$variable)
   p <- ggplot(long_data, aes(x = variable, y = value)) +
-    geom_boxplot() +
+    geom_violin() +
     coord_flip() +
     theme_bw() +
     ggtitle("Box plots: absolute values less than 0.125") +
     xlab("")
-  export_latex("plot", "box", "0_1_25", p, height = 9.7, width = width, TEX = TEX)
+  export_latex("plot", "violin", "0_1_25", p, height = 9.7, width = width, TEX = TEX)
 
 
   long_data <- melt(data[, cols_0_7_5])
   long_data$variable <- gsub("_", "£", long_data$variable)
   p <- ggplot(long_data, aes(x = variable, y = value)) +
-    geom_boxplot() +
+    geom_violin() +
     coord_flip() +
     theme_bw() +
     ggtitle("Box plots: absolute values less than 0.75") +
     xlab("")
-  export_latex("plot", "box", "0_7_5", p, height = 4.5, width = width, TEX = TEX)
+  export_latex("plot", "violin", "0_7_5", p, height = 4.5, width = width, TEX = TEX)
 
   long_data <- melt(data[, cols_5])
   long_data$variable <- gsub("_", "£", long_data$variable)
   p <- ggplot(long_data, aes(x = variable, y = value)) +
-    geom_boxplot() +
+    geom_violin() +
     coord_flip() +
     theme_bw() +
     ggtitle("Box plots: absolute values less than 5") +
     xlab("")
-  export_latex("plot", "box", "5", p, height = 2.3, width = width, TEX = TEX)
+  export_latex("plot", "violin", "5", p, height = 2.3, width = width, TEX = TEX)
 
 
   long_data <- melt(data[, cols_50])
   long_data$variable <- gsub("_", "£", long_data$variable)
   p <- ggplot(long_data, aes(x = variable, y = value)) +
-    geom_boxplot() +
+    geom_violin() +
     coord_flip() +
     theme_bw() +
     ggtitle("Box plots: absolute values less than 50") +
     xlab("")
-  export_latex("plot", "box", "50", p, height = 1.5, width = width, TEX = TEX)
+  export_latex("plot", "violin", "50", p, height = 1.5, width = width, TEX = TEX)
 
 
   long_data <- melt(data[, cols_big])
   long_data$variable <- gsub("_", "£", long_data$variable)
   p <- ggplot(long_data, aes(x = variable, y = value)) +
-    geom_boxplot() +
+    geom_violin() +
     coord_flip() +
     theme_bw() +
     ggtitle("Box plots: absolute values more than 50") +
     xlab("")
-  export_latex("plot", "box", "big", p, height = 1.5, width = width, TEX = TEX)
-
+  export_latex("plot", "violin", "big", p, height = 1.5, width = width, TEX = TEX)
 }

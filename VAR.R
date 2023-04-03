@@ -46,9 +46,7 @@ for (year in c(2010, 2019, 2022)) {
       data[, columns],
       subset = data$Date >= test_start_date
     )
-
-  train[, "Intercept"] <- 1
-  test[, "Intercept"] <- 1
+  
   # The output of VARselect tells us what lag length we should use
   # var_select <- VARselect(train, lag.max = 10, type = "const")
 
@@ -59,7 +57,7 @@ for (year in c(2010, 2019, 2022)) {
     temp_model <- VAR(
       y = train[, c(2, 3, 4, 5, 6)],
       p = lag,
-      type = "none",
+      type = "const",
       exogen = as.matrix(exog[,])
     )
 
