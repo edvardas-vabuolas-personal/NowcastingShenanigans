@@ -5,9 +5,9 @@ source("helper_functions.R")
 source("data_visualisation.R")
 
 ###### Load Data ########
-TEX <- TRUE
+TEX <- FALSE
 
-LSTM <- TRUE
+LSTM <- FALSE
 
 INTERVALS <- get_intervals()
 predictions <- data.frame(
@@ -98,7 +98,8 @@ for (year in c(2010, 2019, 2022)) {
       lambda = 2^runif(15, min = -10, 3)),
     metric = "RMSE"
   )
-  ntrees = 10
+  ntrees = 10 # manually setting no. trees - proportionate to computation time
+  nodesize = 16 # min node size - no. features/3, rule of thumb for regression
 
   message("Hyperparameters successfully obtained")
 
