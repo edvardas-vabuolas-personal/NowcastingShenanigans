@@ -1,6 +1,7 @@
 source("packages_manager.R")
 source("load_data.R")
 source("helper_functions.R")
+source("data_visualisation.R")
 
 # START: Diagnostic checks, lag selection and structural break identification
 data <- load_data(interpolate=FALSE)
@@ -12,6 +13,8 @@ gdp_plot <- ggplot() +
         aes(x = Date, y = GDP)
     )
 export_latex("plot", "gdp", "", gdp_plot)
+
+box_plots(data)
 
 # Plot ACF function, needs to be decreasing
 acf_plot <- acf(data[, c(2)], lag.max = 20, main = "ACF")
