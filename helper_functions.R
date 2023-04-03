@@ -119,3 +119,24 @@ lag_data <- function(data, lag) {
   
   return(data)
 }
+
+make_ragged <- function(msfe_df, n) {
+  nocb_msfe_df <- msfe_df
+  nocb_msfe_df$GDP <- na.locf(nocb_msfe_df$GDP, fromLast = TRUE)
+  nocb_msfe_df <- na.omit(nocb_msfe_df)
+  
+  if (n == 2) {
+    months <- c(1, 4, 7, 10)
+  } else if (n == 1) {
+    months <- c(2, 5, 8, 11)
+  } else {
+    months <- c(3, 6, 9, 12)
+  }
+  return(nocb_msfe_df[
+    as.numeric(
+      format(
+        as.Date(nocb_msfe_df$Date, format = "%Y-%m-%d"), "%m"
+      )
+    ) %in% months,
+  ])
+}

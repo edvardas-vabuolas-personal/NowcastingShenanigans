@@ -158,3 +158,111 @@ box_plots <- function(data) {
     xlab("")
   export_latex("plot", "violin", "big", p, height = 1.5, width = width, TEX = TEX)
 }
+
+plot_ragged <- function(
+    msfe_df_2,
+    msfe_df_1,
+    msfe_df_0,
+    msfe_2,
+    msfe_1,
+    msfe_0,
+    msfe_df,
+    model) {
+  plot_min <- as.Date("2019-12-01", format = "%Y-%m-%d")
+  plot_max <- as.Date("2021-09-01", format = "%Y-%m-%d")
+
+  msfe_df_2 <-
+    subset(
+      msfe_df_2,
+      subset = (msfe_df_2$Date >= plot_min & msfe_df_2$Date <= plot_max)
+    )
+  msfe_df_1 <-
+    subset(
+      msfe_df_1,
+      subset = (msfe_df_1$Date >= plot_min & msfe_df_1$Date <= plot_max)
+    )
+  msfe_df_0 <-
+    subset(
+      msfe_df_0,
+      subset = (msfe_df_0$Date >= plot_min & msfe_df_0$Date <= plot_max)
+    )
+
+  ggplot() +
+    geom_line(
+      data = msfe_df_2,
+      aes(
+        x = as.Date(Date) %m+% months(2),
+        y = model,
+        color = "-2 Predictions"
+      ),
+      size = 1
+    ) +
+    geom_line(
+      data = msfe_df_1,
+      aes(
+        x = as.Date(Date) %m+% months(1),
+        y = model,
+        color = "-1 Predictions"
+      ),
+      size = 1
+    ) +
+    geom_line(
+      data = msfe_df_0,
+      aes(
+        x = as.Date(Date),
+        y = model,
+        color = "-0 Predictions"
+      ),
+      size = 1
+    ) +
+    geom_line(
+      data = msfe_df_0,
+      aes(
+        x = as.Date(Date),
+        y = GDP,
+        color = "Observations"
+      ),
+      size = 1
+    ) +
+    scale_x_date(date_breaks = "1 months", date_labels = "%m-%Y") +
+
+    # Rotate x axis labels by 45 degrees
+    theme(axis.text.x = element_text(angle = 45), axis.title.x = element_blank()) +
+    annotate(
+      geom = "text",
+      x = as.Date(max(msfe_df_0$Date)) %m+% months(-2),
+      y = min(msfe_df_0$GDP) + 6,
+      label = glue("-2 Pred. MSFE: {round(msfe_2, digits = 3)}")
+    ) +
+    annotate(
+      geom = "text",
+      x = as.Date(max(msfe_df_0$Date)) %m+% months(-2),
+      y = min(msfe_df_0$GDP) + 4,
+      label = glue("-1 Pred. MSFE: {round(msfe_1, digits = 3)}")
+    ) +
+    annotate(
+      geom = "text",
+      x = as.Date(max(msfe_df_0$Date)) %m+% months(-2),
+      y = min(msfe_df_0$GDP) + 2,
+      label = glue("-0 Pred. MSFE: {round(msfe_0, digits = 3)}")
+    )
+}
+
+make_msfe_plot <- function(msfe_comparison_df) {
+  long_data <- reshape2::melt(msfe_comparison_df[, -c(1)])
+  group_by_ragged <- rep(msfe_comparison_df$Distance, 5)
+  plot_df <- data.frame(long_data, "Distance" = group_by_ragged)
+  return(
+    ggplot() +
+      geom_bar(
+        data = plot_df,
+        aes(x = variable, y = value, fill = factor(Distance)),
+        stat = "identity",
+        position = position_dodge2()
+      ) +
+      labs(fill = "Month from official quarterly release") +
+      xlab("") +
+      ylab("MSFE") +
+      theme(legend.position = "bottom")
+  )
+}
