@@ -166,11 +166,11 @@ plot_ragged <- function(
     msfe_2,
     msfe_1,
     msfe_0,
-    msfe_df,
-    model) {
+    msfe_df) {
   plot_min <- as.Date("2019-12-01", format = "%Y-%m-%d")
   plot_max <- as.Date("2021-09-01", format = "%Y-%m-%d")
-
+  add.months= function(date,n) seq(date, by = paste (n, "months"), length = 2)[2]
+  add.months.v= function(date,n) as.Date(sapply(date, add.months, n), origin="1970-01-01")
   msfe_df_2 <-
     subset(
       msfe_df_2,
@@ -186,13 +186,16 @@ plot_ragged <- function(
       msfe_df_0,
       subset = (msfe_df_0$Date >= plot_min & msfe_df_0$Date <= plot_max)
     )
-
+  
+  msfe_df_1$Date <- add.months.v(as.Date(msfe_df_1$Date), 1)
+  msfe_df_2$Date <- add.months.v(as.Date(msfe_df_2$Date), 2)
+  
   ggplot() +
     geom_line(
       data = msfe_df_2,
       aes(
-        x = as.Date(Date) %m+% months(2),
-        y = model,
+        x = as.Date(Date),
+        y = `EN Predictions`,
         color = "-2 Predictions"
       ),
       size = 1
@@ -200,8 +203,8 @@ plot_ragged <- function(
     geom_line(
       data = msfe_df_1,
       aes(
-        x = as.Date(Date) %m+% months(1),
-        y = model,
+        x = as.Date(Date),
+        y = `EN Predictions`,
         color = "-1 Predictions"
       ),
       size = 1
@@ -210,7 +213,7 @@ plot_ragged <- function(
       data = msfe_df_0,
       aes(
         x = as.Date(Date),
-        y = model,
+        y = `EN Predictions`,
         color = "-0 Predictions"
       ),
       size = 1

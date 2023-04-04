@@ -5,11 +5,15 @@ source("helper_functions.R")
 source("data_visualisation.R")
 
 ###### Load Data ########
-TEX <- FALSE
+TEX <- TRUE
 
 LSTM <- TRUE
 
 RAGGED_PREDS <- TRUE
+
+STR_BREAKS <- FALSE
+
+STR_B <- if (STR_BREAKS == TRUE) "w_str_b" else "wout_str_b"
 
 INTERVALS <- get_intervals()
 predictions <- data.frame(
@@ -19,21 +23,25 @@ predictions <- data.frame(
 )
 names(predictions)[1] <- "Date"
 
-for (year in c(2022)) {
+for (year in c(2010, 2019, 2022)) {
   dataset_end_date <- as.character(INTERVALS[[year]]["dataset_end_date"])
   train_end_date <- as.character(INTERVALS[[year]]["train_end_date"])
   test_start_date <- as.character(INTERVALS[[year]]["test_start_date"])
   initial_window <- as.character(INTERVALS[[year]]["initial_window"])
   structural_breakpoints <- as.list(INTERVALS[[(paste0(year, ".break_points"))]])
-
+  
+  structural_breakpoints <- if (STR_BREAKS == TRUE) structural_breakpoints else c()
+  
   data <- load_data(
     dataset_end_date = dataset_end_date,
     interpolate = TRUE
   )
-  for (i in seq_along(structural_breakpoints)) {
-    data[, paste0("Break_", i)] <- ifelse(
-      seq_len(nrow(data)) < structural_breakpoints[i], 0, 1
-    )
+  if (STR_BREAKS == TRUE) {
+    for (i in seq_along(structural_breakpoints)) {
+      data[, paste0("Break_", i)] <- ifelse(
+        seq_len(nrow(data)) < structural_breakpoints[i], 0, 1
+      )
+    }
   }
 
   lags <- 2
@@ -102,9 +110,8 @@ for (year in c(2022)) {
     ),
     metric = "RMSE"
   )
-  ntrees <- 1 # manually setting no. trees - proportionate to computation time
-  nodesize <- 32 # min node size - no. features/3, rule of thumb for regression
-  mtry <- 33
+  ntrees <- 100 # manually setting no. trees - proportionate to computation time
+  nodesize <- 16 # min node size - no. features/3, rule of thumb for regression
 
   message("Hyperparameters successfully obtained")
 
@@ -216,7 +223,7 @@ for (year in c(2022)) {
     ),
     subset = data$Date >= test_start_date
   )
-  if (ragged_edges_pred == TRUE) {
+  if (RAGGED_PREDS == TRUE) {
     msfe_df_2 <- make_ragged(msfe_df, 2)
     msfe_df_1 <- make_ragged(msfe_df, 1)
     msfe_df_0 <- make_ragged(msfe_df, 0)
@@ -240,17 +247,22 @@ for (year in c(2022)) {
     lstm_msfe_2 <- calculate_msfe(msfe_df_2$`LSTM Predictions`, msfe_df_2$GDP)
     lstm_msfe_1 <- calculate_msfe(msfe_df_1$`LSTM Predictions`, msfe_df_1$GDP)
     lstm_msfe_0 <- calculate_msfe(msfe_df_0$`LSTM Predictions`, msfe_df_0$GDP)
-
-    en_ragged_plot <- plot_ragged(
-      msfe_df_2,
-      msfe_df_1,
-      msfe_df_0,
-      msfe_2,
-      msfe_1,
-      msfe_0,
-      msfe_df
-    )
-
+    
+    width <- 5.3
+    height <- 3
+    # if (year == '2022') {
+    #   en_ragged_plot <- plot_ragged(
+    #     msfe_df_2,
+    #     msfe_df_1,
+    #     msfe_df_0,
+    #     en_msfe_2,
+    #     en_msfe_1,
+    #     en_msfe_0,
+    #     msfe_df
+    #   )
+    #   export_latex("plot", glue("en_msfes_{STR_B}"), year, en_ragged_plot, width=width, height=height, TEX = TEX)
+    # }
+    
     msfe_comparison_df <- data.frame(
       "Distance" = c(-2, -1, 0),
       "EN MSFE" = c(en_msfe_2, en_msfe_1, en_msfe_0),
@@ -259,8 +271,11 @@ for (year in c(2022)) {
       "RF MSFE" = c(rf_msfe_2, rf_msfe_1, rf_msfe_0),
       "LSTM MSFE" = c(lstm_msfe_2, lstm_msfe_1, lstm_msfe_0)
     )
-
+    write.csv(msfe_comparison_df, glue("./output/msfe_comp_{STR_B}_{year}.csv"), row.names=FALSE)
+    export_latex("table", glue("ml_msfes_{STR_B}"), year, msfe_comparison_df, width=width, height=height, TEX = TEX)
+    
     comparison_figure <- make_msfe_plot(msfe_comparison_df)
+    export_latex("plot", glue("ml_msfes_{STR_B}"), year, comparison_figure, width=width, height=height, TEX = TEX)
   }
 
 
@@ -315,7 +330,7 @@ for (year in c(2022)) {
 
   # A4 page is 8.3x11.7, Overleaf margins are 1 inch. Adjust as needed.
   height <- round(9.7 / 5, digits = 2)
-  width <- 6.3
+  width <- 5.3
 
   en_plot <- make_plot(
     dates = dates_for_plot,
@@ -328,7 +343,7 @@ for (year in c(2022)) {
     scale_y = scale_y
   )
 
-  export_latex("plot", "en", year, en_plot, height = height, width = width, TEX = TEX)
+  export_latex("plot", glue("en_{STR_B}"), year, en_plot, height = height, width = width, TEX = TEX)
 
   r_plot <- make_plot(
     dates = dates_for_plot,
@@ -341,7 +356,7 @@ for (year in c(2022)) {
     scale_y = scale_y
   )
 
-  export_latex("plot", "r", year, r_plot, height = height, width = width, TEX = TEX)
+  export_latex("plot", glue("r_{STR_B}"), year, r_plot, height = height, width = width, TEX = TEX)
 
   l_plot <- make_plot(
     dates = dates_for_plot,
@@ -354,7 +369,7 @@ for (year in c(2022)) {
     scale_y = scale_y
   )
 
-  export_latex("plot", "l", year, l_plot, height = height, width = width, TEX = TEX)
+  export_latex("plot", glue("l_{STR_B}"), year, l_plot, height = height, width = width, TEX = TEX)
 
   rf_plot <- make_plot(
     dates = dates_for_plot,
@@ -367,7 +382,7 @@ for (year in c(2022)) {
     scale_y = scale_y
   )
 
-  export_latex("plot", "rf", year, rf_plot, height = height, width = width, TEX = TEX)
+  export_latex("plot", glue("rf_{STR_B}"), year, rf_plot, height = height, width = width, TEX = TEX)
 
   if (LSTM == TRUE) {
     lstm_plot <- make_plot(
@@ -381,7 +396,7 @@ for (year in c(2022)) {
       scale_y = scale_y
     )
 
-    export_latex("plot", "lstm", year, lstm_plot, height = height, width = width, TEX = TEX)
+    export_latex("plot", glue("lstm_{STR_B}"), year, lstm_plot, height = height, width = width, TEX = TEX)
   }
 
   predictions <- merge(predictions, msfe_df[, -c(2)], by = "Date", all = TRUE)
@@ -398,7 +413,7 @@ rf_var_plot <- plot_var_imp(rf_temp, 50, "Random Forest: Selected variables")
 height <- 9.7
 width <- 6.3
 
-export_latex("plot", "en_importance", "", en_var_plot, height = height, width = width, TEX = TEX)
-export_latex("plot", "r_importance", "", r_var_plot, height = height, width = width, TEX = TEX)
-export_latex("plot", "l_importance", "", l_var_plot, height = height, width = width, TEX = TEX)
-export_latex("plot", "rf_importance", "", rf_var_plot, height = height, width = width, TEX = TEX)
+export_latex("plot", glue("en_importance_{STR_B}"), "", en_var_plot, height = height, width = width, TEX = TEX)
+export_latex("plot", glue("r_importance_{STR_B}"), "", r_var_plot, height = height, width = width, TEX = TEX)
+export_latex("plot", glue("l_importance_{STR_B}"), "", l_var_plot, height = height, width = width, TEX = TEX)
+export_latex("plot", glue("rf_importance_{STR_B}"), "", rf_var_plot, height = height, width = width, TEX = TEX)
