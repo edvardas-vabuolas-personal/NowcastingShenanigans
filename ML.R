@@ -1,42 +1,48 @@
-####### Load Packages ##########
 source("packages_manager.R")
 source("load_data.R")
 source("helper_functions.R")
 source("data_visualisation.R")
 
-###### Load Data ########
-TEX <- TRUE
+# Set this to TRUE for LaTeX exports.
+# Note: VERY SLOW and overrides files in output
+TEX <- FALSE
 
+# Set this to TRUE only if LSTM data exists in output
 LSTM <- TRUE
 
+# Set this to TRUE if interested in vintages analysis
 RAGGED_PREDS <- TRUE
 
-STR_BREAKS <- FALSE
+# Set this to TRUE to include structural breaks (dummy variables)
+STR_BREAKS <- TRUE
 
+# Purely technical. We use STR_B string for file names.
 STR_B <- if (STR_BREAKS == TRUE) "w_str_b" else "wout_str_b"
 
+# This loads a dictionary (a hashmap) with intervals and their properties
+# such as dataset end date, train end date, test start date etc.
 INTERVALS <- get_intervals()
-predictions <- data.frame(
-  seq(as.Date("2006-01-01"), as.Date("2022-09-01"),
-    by = "month"
-  )
-)
-names(predictions)[1] <- "Date"
 
+# Iterate through every interval
 for (year in c(2010, 2019, 2022)) {
+  # Retrieve interval-related parameters
   dataset_end_date <- as.character(INTERVALS[[year]]["dataset_end_date"])
   train_end_date <- as.character(INTERVALS[[year]]["train_end_date"])
   test_start_date <- as.character(INTERVALS[[year]]["test_start_date"])
   initial_window <- as.character(INTERVALS[[year]]["initial_window"])
   structural_breakpoints <- as.list(INTERVALS[[(paste0(year, ".break_points"))]])
-  
+
+  # Reset the list to empty if STR_BREAKS == FALSE
   structural_breakpoints <- if (STR_BREAKS == TRUE) structural_breakpoints else c()
-  
+
+  # Load and linearly interpolate dataset. See load_data.R.
   data <- load_data(
     dataset_end_date = dataset_end_date,
     interpolate = TRUE
   )
+
   if (STR_BREAKS == TRUE) {
+    # Add structural breaks based on interval parameter on structural breaks
     for (i in seq_along(structural_breakpoints)) {
       data[, paste0("Break_", i)] <- ifelse(
         seq_len(nrow(data)) < structural_breakpoints[i], 0, 1
@@ -44,9 +50,13 @@ for (year in c(2010, 2019, 2022)) {
     }
   }
 
+  # Set the number of lags
   lags <- 2
+
+  # Lag all explanatory variables by <lags>, see helper_functions.R
   data <- lag_data(data, lags)
 
+  # Split to train and test sets
   train_set <-
     subset(
       data,
@@ -58,13 +68,14 @@ for (year in c(2010, 2019, 2022)) {
       subset = data$Date >= test_start_date
     )
 
-  #### Creating sampling seeds for reproducibility ####
+  # Creating sampling seeds for reproducibility
   set.seed(123)
   seeds <- get_seeds()
 
   # Enable multi-threading with three cores
-  registerDoParallel(cores = 5)
+  registerDoParallel(cores = 3)
 
+  # Enable expanding window configuration used by Caret packaage
   my_time_control <- trainControl(
     method = "timeslice",
     initialWindow = initial_window,
@@ -72,7 +83,7 @@ for (year in c(2010, 2019, 2022)) {
     fixedWindow = FALSE,
     allowParallel = TRUE,
     savePredictions = "final",
-    verbose = TRUE,
+    verbose = FALSE,
     seeds = seeds
   )
 
@@ -110,13 +121,19 @@ for (year in c(2010, 2019, 2022)) {
     ),
     metric = "RMSE"
   )
-  ntrees <- 100 # manually setting no. trees - proportionate to computation time
-  nodesize <- 16 # min node size - no. features/3, rule of thumb for regression
+
+  # No. of trees for random forest
+  ntrees <- 100
+
+  # Min node size for random forest
+  nodesize <- 5
 
   message("Hyperparameters successfully obtained")
 
-  # For each row in the test sub sample (expanding window)
+  # For each row in OOS (expanding window)
   for (i in 1:nrow(test_set)) {
+    # Retrain to obtain new coefficients for explanatory variables
+    # but keep initial hyperparameters fixed
     elastic_net_temp <- train(
       GDP ~ .,
       data = train_set[, -c(1)],
@@ -165,6 +182,7 @@ for (year in c(2010, 2019, 2022)) {
       nodesize = nodesize
     )
 
+    # Make a one-step ahead forecast
     en_prediction <- predict(
       object = elastic_net_temp,
       newdata = test_set[i, ]
@@ -184,16 +202,24 @@ for (year in c(2010, 2019, 2022)) {
       object = rf_temp,
       newdata = test_set[i, ]
     )
+
+    # Store predictions
     data[data$Date == max(train_set$Date), "EN Predictions"] <- en_prediction
     data[data$Date == max(train_set$Date), "R Predictions"] <- r_prediction
     data[data$Date == max(train_set$Date), "L Predictions"] <- l_prediction
     data[data$Date == max(train_set$Date), "RF Predictions"] <- rf_prediction
+
+    # Append the training set with OOS
     train_set[nrow(train_set) + 1, ] <- test_set[i, ]
+
     message(glue("{year}. No. of OOS observations left: {nrow(test_set) - i}"))
   }
 
   if (LSTM == TRUE) {
-    lstm_df <- read_csv(glue("./output/LSTM_{year}.csv"), show_col_types = FALSE)
+    # This output is produced by LSTM.ipynb in LSTM folder (requires Python)
+    lstm_df <- read_csv(glue("./output/LSTM_{year}_{STR_B}.csv"), show_col_types = FALSE)
+
+    # Remove training observations
     data[data$Date >= train_end_date, "LSTM Predictions"] <- lstm_df$`LSTM Predictions`
   } else {
     # Handles any potential errors
@@ -201,7 +227,7 @@ for (year in c(2010, 2019, 2022)) {
   }
 
 
-  # Create new dataframe called msfe_df and import dataset
+  # Load data again, this time, without interpolation
   msfe_df <- load_data(dataset_end_date = dataset_end_date)
   msfe_df <- msfe_df[(lags + 1):nrow(msfe_df), ]
   msfe_df$`EN Predictions` <- data$`EN Predictions`
@@ -210,7 +236,7 @@ for (year in c(2010, 2019, 2022)) {
   msfe_df$`RF Predictions` <- data$`RF Predictions`
   msfe_df$`LSTM Predictions` <- data$`LSTM Predictions`
 
-  # Appends the predictions column from data to msfe_df
+  # Remove training observations, drop explanatory variables
   msfe_df <- subset(msfe_df,
     select = c(
       "Date",
@@ -224,10 +250,14 @@ for (year in c(2010, 2019, 2022)) {
     subset = data$Date >= test_start_date
   )
   if (RAGGED_PREDS == TRUE) {
+    # The second argument of make_ragged specifies how many months
+    # away from the official GDP release. Returns NOCB interpolated
+    # dataframe. See helper_functions.R
     msfe_df_2 <- make_ragged(msfe_df, 2)
     msfe_df_1 <- make_ragged(msfe_df, 1)
     msfe_df_0 <- make_ragged(msfe_df, 0)
 
+    # Calculate MSFE. See helper_functions.R
     en_msfe_2 <- calculate_msfe(msfe_df_2$`EN Predictions`, msfe_df_2$GDP)
     en_msfe_1 <- calculate_msfe(msfe_df_1$`EN Predictions`, msfe_df_1$GDP)
     en_msfe_0 <- calculate_msfe(msfe_df_0$`EN Predictions`, msfe_df_0$GDP)
@@ -247,22 +277,11 @@ for (year in c(2010, 2019, 2022)) {
     lstm_msfe_2 <- calculate_msfe(msfe_df_2$`LSTM Predictions`, msfe_df_2$GDP)
     lstm_msfe_1 <- calculate_msfe(msfe_df_1$`LSTM Predictions`, msfe_df_1$GDP)
     lstm_msfe_0 <- calculate_msfe(msfe_df_0$`LSTM Predictions`, msfe_df_0$GDP)
-    
+
+    # Purely technical. LaTeX graphs and figures.
     width <- 5.3
     height <- 3
-    # if (year == '2022') {
-    #   en_ragged_plot <- plot_ragged(
-    #     msfe_df_2,
-    #     msfe_df_1,
-    #     msfe_df_0,
-    #     en_msfe_2,
-    #     en_msfe_1,
-    #     en_msfe_0,
-    #     msfe_df
-    #   )
-    #   export_latex("plot", glue("en_msfes_{STR_B}"), year, en_ragged_plot, width=width, height=height, TEX = TEX)
-    # }
-    
+
     msfe_comparison_df <- data.frame(
       "Distance" = c(-2, -1, 0),
       "EN MSFE" = c(en_msfe_2, en_msfe_1, en_msfe_0),
@@ -271,19 +290,22 @@ for (year in c(2010, 2019, 2022)) {
       "RF MSFE" = c(rf_msfe_2, rf_msfe_1, rf_msfe_0),
       "LSTM MSFE" = c(lstm_msfe_2, lstm_msfe_1, lstm_msfe_0)
     )
-    write.csv(msfe_comparison_df, glue("./output/msfe_comp_{STR_B}_{year}.csv"), row.names=FALSE)
-    export_latex("table", glue("ml_msfes_{STR_B}"), year, msfe_comparison_df, width=width, height=height, TEX = TEX)
-    
+    write.csv(msfe_comparison_df, glue("./output/msfe_comp_{STR_B}_{year}.csv"), row.names = FALSE)
+    export_latex("table", glue("ml_msfes_{STR_B}"), year, msfe_comparison_df, width = width, height = height, TEX = TEX)
+
     comparison_figure <- make_msfe_plot(msfe_comparison_df)
-    export_latex("plot", glue("ml_msfes_{STR_B}"), year, comparison_figure, width=width, height=height, TEX = TEX)
+    export_latex("plot", glue("ml_msfes_{STR_B}"), year, comparison_figure, width = width, height = height, TEX = TEX)
   }
 
-
+  # For plots, we want to display non-interpolated GDP values and predictions
   plot_df <- na.omit(msfe_df)
+
+  # For MSFE calculations, we want to use NOCB
   # Replaces NA values with "NOCB" (Next Observation Carried Backwards)
   msfe_df <- na.locf(msfe_df, fromLast = TRUE)
 
   # Use NOCB-interpolated values for MSFE calculations
+  # see helper_functions.R
   en_msfe <- calculate_msfe(
     predictions = msfe_df$`EN Predictions`,
     oos = msfe_df$GDP
@@ -317,7 +339,9 @@ for (year in c(2010, 2019, 2022)) {
     message(glue("LSTM MSFE ({year}): {lstm_msfe}"))
   }
 
-  #### Plot predictions and observations ####
+
+
+  # Purely technical. LaTeX graphs and figures.
 
   dates_for_plot <-
     seq(
@@ -398,22 +422,20 @@ for (year in c(2010, 2019, 2022)) {
 
     export_latex("plot", glue("lstm_{STR_B}"), year, lstm_plot, height = height, width = width, TEX = TEX)
   }
-
-  predictions <- merge(predictions, msfe_df[, -c(2)], by = "Date", all = TRUE)
 }
 
-# Plot importance of variables
+# Purely technical. LaTeX graphs and plots.
 
-en_var_plot <- plot_var_imp(elastic_net, 50, "Elastic Net: Selected variables")
-r_var_plot <- plot_var_imp(ridge, 50, "Ridge: Selected variables")
-l_var_plot <- plot_var_imp(lasso, 50, "Lasso: Selected variables")
-rf_var_plot <- plot_var_imp(rf_temp, 50, "Random Forest: Selected variables")
+en_var_plot <- plot_var_imp(elastic_net_temp, 50, "Elastic Net: Selected variables")
+r_var_plot <- plot_var_imp(ridge_temp, 50, "Ridge: Selected variables")
+l_var_plot <- plot_var_imp(lasso_temp, 50, "Lasso: Selected variables")
+rf_var_plot <- plot_var_imp(rf_temp_temp, 50, "Random Forest: Selected variables")
 
 # A4 page is 8.3 on 11.7, Overleaf margins are 1 inch each side. Adjust as needed
 height <- 9.7
 width <- 6.3
 
-export_latex("plot", glue("en_importance_{STR_B}"), "", en_var_plot, height = height, width = width, TEX = TEX)
-export_latex("plot", glue("r_importance_{STR_B}"), "", r_var_plot, height = height, width = width, TEX = TEX)
-export_latex("plot", glue("l_importance_{STR_B}"), "", l_var_plot, height = height, width = width, TEX = TEX)
-export_latex("plot", glue("rf_importance_{STR_B}"), "", rf_var_plot, height = height, width = width, TEX = TEX)
+export_latex("plot", glue("en_importance_{STR_B}"), year, en_var_plot, height = height, width = width, TEX = TEX)
+export_latex("plot", glue("r_importance_{STR_B}"), year, r_var_plot, height = height, width = width, TEX = TEX)
+export_latex("plot", glue("l_importance_{STR_B}"), year, l_var_plot, height = height, width = width, TEX = TEX)
+export_latex("plot", glue("rf_importance_{STR_B}"), year, rf_var_plot, height = height, width = width, TEX = TEX)

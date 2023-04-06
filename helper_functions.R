@@ -10,19 +10,19 @@ get_seeds <- function() {
 
 get_intervals <- function() {
   INTERVALS <- hashmap()
-  params_2010 = c(
+  params_2010 <- c(
     dataset_end_date = "2010-12-01",
     train_end_date = "2005-12-01",
     test_start_date = "2006-01-01",
     initial_window = 200
   )
-  params_2019 = c(
+  params_2019 <- c(
     dataset_end_date = "2019-12-01",
     train_end_date = "2015-12-01",
     test_start_date = "2016-01-01",
     initial_window = 310
   )
-  params_2022 = c(
+  params_2022 <- c(
     dataset_end_date = FALSE,
     train_end_date = "2015-12-01",
     test_start_date = "2016-01-01",
@@ -34,11 +34,11 @@ get_intervals <- function() {
   INTERVALS[["2010.break_points"]] <- c(217)
   INTERVALS[["2019.break_points"]] <- c(217)
   INTERVALS[["2022.break_points"]] <- c(217, 361)
-  
+
   return(INTERVALS)
 }
 
-export_latex <- function(type, name, year = "", object, width = 7, height = 6, TEX=FALSE) {
+export_latex <- function(type, name, year = "", object, width = 7, height = 6, TEX = FALSE) {
   # type should be "plot" or "table"
   # name should be a string, normally a prefix (i.e. ar, var, ml)
   # object should be a ggplot object for plots or a dataframe for tables
@@ -66,7 +66,7 @@ export_latex <- function(type, name, year = "", object, width = 7, height = 6, T
   }
 }
 
-calculate_msfe <- function(predictions,  oos) {
+calculate_msfe <- function(predictions, oos) {
   # MSFE = SUM( (Yhat - OOS)^2 ) / No. of OOS
   squared_diff <- (as.numeric(predictions) - oos)^2
   sum_squared_diff <- sum(squared_diff)
@@ -84,39 +84,39 @@ lag_data <- function(data, lag) {
   # 0.2                         0.4     0.9     ...
   # 0.5                         0.2     0.4     ...
   # ...                         ...     ...     ...
-  
+
   if (lag < 1) {
     return(data)
   }
-  
+
   data_to_lag <- data
-  
+
   # Keep date and t+1 GDP
   data <- data[, c("Date", "GDP")]
-  
+
   # Add t, t-1, ..., t-lag explanatory variables to 'data' variable
   for (lag in 1:lags) {
     lagged_data <- data_to_lag
-    
+
     # -c(1) because we don't want to lag 'Date' column
-    lagged_data[, -c(1)] <- lag(data_to_lag[, -c(1)], n=lag)
-    
+    lagged_data[, -c(1)] <- lag(data_to_lag[, -c(1)], n = lag)
+
     # The following is just for renaming columns
-    col_index = 1
+    col_index <- 1
     for (col_name in colnames(lagged_data)) {
-      if (col_name != 'Date') {
+      if (col_name != "Date") {
         names(lagged_data)[col_index] <- glue("L{lag}{col_name}")
       }
-      col_index = col_index + 1
+      col_index <- col_index + 1
     }
-    
+
     # Add t, t-1, ..., t-lag explanatory variables to 'data' variable
-    data = merge(data, lagged_data, by = "Date", all = FALSE)
+    data <- merge(data, lagged_data, by = "Date", all = FALSE)
   }
-  
+
   # First and last rows now contain NA values (because we lagged variables)
   data <- na.omit(data)
-  
+
   return(data)
 }
 
@@ -124,12 +124,22 @@ make_ragged <- function(msfe_df, n) {
   nocb_msfe_df <- msfe_df
   nocb_msfe_df$GDP <- na.locf(nocb_msfe_df$GDP, fromLast = TRUE)
   nocb_msfe_df <- na.omit(nocb_msfe_df)
-  
+
   if (n == 2) {
+    # If 2 months vintage requested,
+    # then we are interested in Jan, April, July, and Oct
+    # Forecasts
     months <- c(1, 4, 7, 10)
   } else if (n == 1) {
+    # If 1 months vintage requested,
+    # then we are interested in Feb, May, Aug, and Nov
+    # Forecasts
     months <- c(2, 5, 8, 11)
   } else {
+    # If not 2 and not 1 vintages requested,
+    # then we are interested in March, June, Sept, and Dec
+    # Forecasts.
+    # These match official GDP release months
     months <- c(3, 6, 9, 12)
   }
   return(nocb_msfe_df[

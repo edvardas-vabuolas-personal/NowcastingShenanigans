@@ -81,9 +81,6 @@ load_data <- function(
             na.approx(nowcasting_dataset$GDP_QNA_RG)
     }
 
-    # Identify the column with missing values
-    # colSums(is.na(nowcasting_dataset))
-
     # Calculate the mean of the column
     column_mean <- mean(nowcasting_dataset$LIBOR_3mth, na.rm = TRUE)
 
